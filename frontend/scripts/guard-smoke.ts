@@ -1,10 +1,4 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import dotenv from "dotenv";
-
-const currentDir = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(currentDir, "../.env") });
 
 async function run() {
   const { validateCreateVaultForm } = await import("../src/lib/create-vault");

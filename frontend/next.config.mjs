@@ -1,9 +1,10 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import nextEnv from "@next/env";
 
 const { loadEnvConfig } = nextEnv;
 
-const projectDir = import.meta.dirname;
+const projectDir = path.dirname(fileURLToPath(import.meta.url));
 loadEnvConfig(projectDir);
 loadEnvConfig(path.join(projectDir, ".."));
 
