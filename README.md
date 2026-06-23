@@ -2,6 +2,8 @@
 
 VaultCircle is a group sBTC custody protocol on Stacks with a Next.js frontend for public Stacks testnet usage.
 
+For Vercel setup, use the Next.js app in `frontend/` and follow [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md).
+
 ## Production Scope
 
 This repository is trimmed for:

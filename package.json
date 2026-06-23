@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit && tsc -p frontend/tsconfig.json --noEmit",
     "test": "tsx --tsconfig frontend/tsconfig.json frontend/scripts/guard-smoke.ts",
     "build": "npm run typecheck && npm run frontend:build",
+    "verify:vercel": "tsx scripts/verify-vercel.ts",
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:lint": "npm --prefix frontend run lint",
     "frontend:build": "npm --prefix frontend run build",

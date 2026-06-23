@@ -5,8 +5,9 @@ import nextEnv from "@next/env";
 const { loadEnvConfig } = nextEnv;
 
 const projectDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.join(projectDir, "..");
 loadEnvConfig(projectDir);
-loadEnvConfig(path.join(projectDir, ".."));
+loadEnvConfig(repoRoot);
 
 function rootContract(contractName) {
   const deployerAddress = process.env.NEXT_PUBLIC_DEPLOYER_ADDRESS || process.env.DEPLOYER_ADDRESS;
@@ -54,7 +55,7 @@ const publicEnv = {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  outputFileTracingRoot: path.join(projectDir),
+  outputFileTracingRoot: repoRoot,
   env: publicEnv
 };
 
