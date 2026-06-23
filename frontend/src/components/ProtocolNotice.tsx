@@ -1,5 +1,6 @@
 "use client";
 
+import { FRONTEND_ENV_WARNING, HAS_FRONTEND_ENV_FALLBACKS } from "@/lib/contracts";
 import { useWallet } from "@/lib/wallet";
 
 export default function ProtocolNotice() {
@@ -7,7 +8,17 @@ export default function ProtocolNotice() {
 
   return (
     <section className="border-b border-white/10 bg-white/[0.03]">
-      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-3 px-4 py-4 sm:px-6 lg:px-8">
+        {HAS_FRONTEND_ENV_FALLBACKS && (
+          <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.08] px-4 py-3 text-sm text-amber-100">
+            <p className="font-semibold text-amber-200">Deployment setup incomplete</p>
+            <p className="mt-1">
+              This frontend is using example fallback values because these Vercel env vars are still missing:
+              {" "}
+              <span className="font-mono text-xs text-amber-200">{FRONTEND_ENV_WARNING.join(", ")}</span>.
+            </p>
+          </div>
+        )}
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">{networkLabel}</p>
