@@ -1,0 +1,20 @@
+[network]
+name = "devnet"
+deployment_fee_rate = 10
+
+[accounts.deployer]
+mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+
+[vaultcircle]
+mode = "devnet"
+sbtc_contract = "ST000000000000000000002AMW42H.sbtc-token"
+zest_mode = "disabled"
+zest_contract = ""
+protocol_admin = "ST000000000000000000002AMW42H"
+max_zest_allocation_pct = 70
+min_liquid_reserve_pct = 30
+min_threshold = 51
+default_threshold = 70
+min_proposal_expiry_blocks = 144
+default_proposal_expiry_blocks = 1008
+max_proposal_expiry_blocks = 4320

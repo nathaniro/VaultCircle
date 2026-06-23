@@ -1,0 +1,52 @@
+[project]
+name = "vault-circle"
+description = "VaultCircle public testnet manifest"
+authors = []
+telemetry = false
+cache_dir = ".\\.cache"
+requirements = []
+
+[contracts.sip-010-ft-trait]
+path = "contracts/sip-010-ft-trait.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.governance-params]
+path = "contracts/governance-params.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.vault-registry]
+path = "contracts/vault-registry.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.zest-adapter]
+path = "contracts/zest-adapter-testnet.clar"
+clarity_version = 3
+epoch = "latest"
+depends_on = ["sip-010-ft-trait"]
+
+[contracts.proposal-manager]
+path = "contracts/proposal-manager.clar"
+clarity_version = 3
+epoch = "latest"
+
+[contracts.vault-circle]
+path = "contracts/vault-circle.clar"
+clarity_version = 3
+epoch = "latest"
+depends_on = ["sip-010-ft-trait", "governance-params", "vault-registry", "proposal-manager", "zest-adapter"]
+
+[repl.analysis]
+passes = ["check_checker"]
+
+[repl.analysis.check_checker]
+strict = false
+trusted_sender = false
+trusted_caller = false
+callee_filter = false
+
+[repl.remote_data]
+enabled = false
+api_url = "https://api.hiro.so"

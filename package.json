@@ -1,0 +1,29 @@
+{
+  "name": "vault-circle",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "npm run clarinet:check && npm run typecheck && npm run frontend:lint",
+    "clarinet:check": "clarinet check -m Clarinet.toml -c",
+    "typecheck": "tsc --noEmit && tsc -p frontend/tsconfig.json --noEmit",
+    "test": "tsx --tsconfig frontend/tsconfig.json frontend/scripts/guard-smoke.ts",
+    "build": "npm run typecheck && npm run frontend:build",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:lint": "npm --prefix frontend run lint",
+    "frontend:build": "npm --prefix frontend run build",
+    "scripts:check": "tsx scripts/check.ts",
+    "scripts:prepare:testnet": "tsx scripts/prepare-testnet.ts",
+    "scripts:deploy:testnet": "tsx scripts/deploy-testnet.ts",
+    "scripts:init:testnet": "tsx scripts/init-testnet.ts",
+    "scripts:verify:testnet": "tsx scripts/verify-testnet.ts"
+  },
+  "dependencies": {
+    "@stacks/network": "^6.13.0",
+    "@stacks/transactions": "^6.17.0",
+    "@types/node": "^24.4.0",
+    "dotenv": "^16.4.5",
+    "typescript": "^5.9.3",
+    "tsx": "^4.19.1"
+  }
+}
