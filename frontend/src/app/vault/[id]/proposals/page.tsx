@@ -8,8 +8,10 @@ import InfoCard from "@/components/InfoCard";
 import PageHeader from "@/components/PageHeader";
 import ProposalBadge from "@/components/ProposalBadge";
 import TxStatus from "@/components/TxStatus";
+import VaultMembershipBadge from "@/components/VaultMembershipBadge";
 import { getProposal, getRequiredApprovals, getVault, getVaultProposals, hasVoted } from "@/lib/stacks";
 import { txExecuteProposal, txVote } from "@/lib/transactions";
+import { useVaultMembership } from "@/lib/use-vault-membership";
 import { formatAppError, normalizeUint } from "@/lib/validation";
 import { useWallet } from "@/lib/wallet";
 import type { Proposal, ProposalStatus, Vault } from "@/types";
@@ -26,7 +28,8 @@ function ProposalsPageContent() {
   const { id } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const vaultId = normalizeUint(id);
-  const { address } = useWallet();
+  const { address, connected, connect } = useWallet();
+  const { isMember } = useVaultMembership(vaultId, address);
 
   const [vault, setVault] = useState<Vault | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -110,7 +113,20 @@ function ProposalsPageContent() {
   }, [vaultId, address]);
 
   async function handleVote(proposalId: number, approve: boolean) {
-    if (!address || vaultId === null) return;
+    if (vaultId === null) return;
+    if (!connected || !address) {
+      connect();
+      return;
+    }
+    if (!isMember) {
+      setTxFeedback({
+        state: "error",
+        title: "Vote not submitted",
+        description: "Only active vault members can approve or reject proposals for this treasury."
+      });
+      return;
+    }
+
     setPending(proposalId);
     setTxFeedback(null);
 
@@ -161,7 +177,20 @@ function ProposalsPageContent() {
   }
 
   async function handleExecute(proposalId: number) {
-    if (!address || vaultId === null) return;
+    if (vaultId === null) return;
+    if (!connected || !address) {
+      connect();
+      return;
+    }
+    if (!isMember) {
+      setTxFeedback({
+        state: "error",
+        title: "Execution not submitted",
+        description: "Only active vault members can execute a passed proposal for this treasury."
+      });
+      return;
+    }
+
     setPending(proposalId);
     setTxFeedback(null);
 
@@ -269,7 +298,7 @@ function ProposalsPageContent() {
         </span>
       </div>
 
-      {proposal.status === "ACTIVE" && address && !voted[proposal.proposalId] && (
+      {proposal.status === "ACTIVE" && address && isMember && !voted[proposal.proposalId] && (
         <div className="flex flex-col gap-3 md:flex-row">
           <button
             onClick={() => handleVote(proposal.proposalId, true)}
@@ -288,6 +317,13 @@ function ProposalsPageContent() {
         </div>
       )}
 
+      {proposal.status === "ACTIVE" && address && !isMember && (
+        <InfoCard
+          title="Read-only access"
+          description="This wallet can monitor proposal progress, but only active vault members can cast votes on open proposals."
+        />
+      )}
+
       {proposal.status === "ACTIVE" && voted[proposal.proposalId] && (
         <InfoCard
           title="Vote already recorded"
@@ -303,7 +339,7 @@ function ProposalsPageContent() {
         />
       )}
 
-      {proposal.status === "PASSED" && !proposal.executed && (
+      {proposal.status === "PASSED" && !proposal.executed && isMember && (
         <button
           onClick={() => handleExecute(proposal.proposalId)}
           disabled={pending === proposal.proposalId}
@@ -311,6 +347,13 @@ function ProposalsPageContent() {
         >
           {pending === proposal.proposalId ? "Submitting execution..." : "Execute Proposal"}
         </button>
+      )}
+
+      {proposal.status === "PASSED" && !proposal.executed && address && !isMember && (
+        <InfoCard
+          title="Execution reserved for members"
+          description="This proposal is ready, but only active vault members can submit the execution transaction."
+        />
       )}
     </div>
   );
@@ -345,21 +388,48 @@ function ProposalsPageContent() {
         backHref={`/vault/${vaultId}`}
         backLabel="Back to vault overview"
         actions={
-          <Link href={`/vault/${vaultId}/create-proposal`} className="btn-primary">
-            Create Proposal
-          </Link>
+          !connected ? (
+            <button type="button" onClick={() => connect()} className="btn-primary">
+              Connect to Propose
+            </button>
+          ) : isMember ? (
+            <Link href={`/vault/${vaultId}/create-proposal`} className="btn-primary">
+              Create Proposal
+            </Link>
+          ) : (
+            <button type="button" disabled className="btn-primary opacity-60">
+              Members Only
+            </button>
+          )
         }
         meta={
           <div className="flex flex-wrap gap-3 text-sm text-slate-400">
+            {isMember && vault && <VaultMembershipBadge creator={vault.creator === address} />}
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
               {required} approval{required !== 1 ? "s" : ""} required to pass
             </span>
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
-              Connected wallet role: voter and potential executor
+              Connected wallet role: {isMember ? "voter and potential executor" : connected ? "read-only viewer" : "connect wallet to participate"}
             </span>
           </div>
         }
       />
+
+      {!connected && (
+        <TxStatus
+          state="pending"
+          title="Connect a wallet to participate"
+          description="You can review proposal activity without a wallet, but voting, execution, and proposal creation are unlocked only after connecting an active member wallet."
+        />
+      )}
+
+      {connected && !isMember && (
+        <TxStatus
+          state="error"
+          title="Member action locked"
+          description="This wallet can monitor proposal activity, but only active vault members can create, vote on, or execute proposals."
+        />
+      )}
 
       {searchParams.get("created") === "1" && (
         <TxStatus
@@ -382,8 +452,8 @@ function ProposalsPageContent() {
         <EmptyState
           title="No proposals yet"
           description="When members want to withdraw, distribute funds, add a new participant, or manage Zest allocation, they create a proposal here for group review."
-          actionHref={`/vault/${vaultId}/create-proposal`}
-          actionLabel="Create the First Proposal"
+          actionHref={connected && isMember ? `/vault/${vaultId}/create-proposal` : `/vault/${vaultId}/members`}
+          actionLabel={connected && isMember ? "Create the First Proposal" : "Review Vault Members"}
         />
       )}
 

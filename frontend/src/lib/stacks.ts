@@ -6,15 +6,25 @@ import {
   uintCV,
   type ClarityValue
 } from "@stacks/transactions";
-import { CONTRACTS, DEPLOYER_ADDRESS, getStacksNetwork, splitContractId } from "./contracts";
+import { CONTRACTS, DEPLOYER_ADDRESS, getClientSafeNetwork, splitContractId } from "./contracts";
 import { devError, devWarn, isSafeUint, isValidStacksAddress, normalizeUint } from "./validation";
 import type { Member, Proposal, ProposalStatus, Vault } from "@/types";
 
-const network = getStacksNetwork();
+export interface ProtocolOverview {
+  totalVaults: number;
+  activeVaults: number;
+  totalTrackedValue: number;
+  yieldEnabledVaults: number;
+}
 
-// 15-second in-memory cache to avoid redundant API calls within the testnet rate limit (50 req/min).
+const network = getClientSafeNetwork();
+
+// 60-second cache — keeps repeat renders and the 10-second auto-refresh well under the free-tier limit.
 const _readOnlyCache = new Map<string, { value: unknown; at: number }>();
-const CACHE_TTL = 15_000;
+// Deduplicates concurrent identical requests (e.g. React StrictMode double-invoke).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _inFlight = new Map<string, Promise<any>>();
+const CACHE_TTL = 60_000;
 
 function argsKey(args: ClarityValue[]): string {
   try {
@@ -24,16 +34,52 @@ function argsKey(args: ClarityValue[]): string {
   }
 }
 
-async function readOnly(contractId: string, functionName: string, functionArgs: ClarityValue[], senderAddress = DEPLOYER_ADDRESS) {
+function is429(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e ?? "");
+  return msg.includes("429") || /rate.?limit|too many requests/i.test(msg);
+}
+
+function parse429WaitMs(e: unknown): number {
+  const msg = e instanceof Error ? e.message : String(e ?? "");
+  const m = msg.match(/try again in (\d+) seconds?/i);
+  return m ? Math.min(Number(m[1]) * 1_000 + 1_000, 30_000) : 10_000;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function readOnly(contractId: string, functionName: string, functionArgs: ClarityValue[], senderAddress = DEPLOYER_ADDRESS): Promise<any> {
   const key = `${contractId}|${functionName}|${argsKey(functionArgs)}`;
+
   const cached = _readOnlyCache.get(key);
   if (cached && Date.now() - cached.at < CACHE_TTL) return cached.value;
 
+  const inflight = _inFlight.get(key);
+  if (inflight) return inflight;
+
   const { address, name } = splitContractId(contractId);
-  const result = await callReadOnlyFunction({ contractAddress: address, contractName: name, functionName, functionArgs, network, senderAddress });
-  const value = cvToValue(result);
-  _readOnlyCache.set(key, { value, at: Date.now() });
-  return value;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function run(): Promise<any> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) {
+        await new Promise<void>((r) => setTimeout(r, parse429WaitMs(lastError)));
+      }
+      try {
+        const result = await callReadOnlyFunction({ contractAddress: address, contractName: name, functionName, functionArgs, network, senderAddress });
+        const value = cvToValue(result);
+        _readOnlyCache.set(key, { value, at: Date.now() });
+        return value;
+      } catch (e) {
+        lastError = e;
+        if (!is429(e)) throw e;
+      }
+    }
+    throw lastError;
+  }
+
+  const promise = run().finally(() => _inFlight.delete(key));
+  _inFlight.set(key, promise);
+  return promise;
 }
 
 function toSafeUint(value: unknown, minimum = 0): number | null {
@@ -237,6 +283,40 @@ export async function getMemberVaults(memberAddress: string): Promise<number[]> 
   } catch (error) {
     devError(`Failed to fetch vault memberships for ${memberAddress}:`, error);
     return [];
+  }
+}
+
+export async function getProtocolOverview(): Promise<ProtocolOverview> {
+  try {
+    const countRaw = await readOnly(CONTRACTS.vaultRegistry, "get-vault-count", []);
+    const totalVaults = toSafeUint(countRaw) ?? 0;
+
+    if (totalVaults === 0) {
+      return {
+        totalVaults: 0,
+        activeVaults: 0,
+        totalTrackedValue: 0,
+        yieldEnabledVaults: 0
+      };
+    }
+
+    const vaultIds = Array.from({ length: totalVaults }, (_, index) => index + 1);
+    const vaults = (await Promise.all(vaultIds.map((vaultId) => getVault(vaultId)))).filter((vault): vault is Vault => vault !== null);
+
+    return {
+      totalVaults: vaults.length,
+      activeVaults: vaults.filter((vault) => vault.status === "ACTIVE").length,
+      totalTrackedValue: vaults.reduce((sum, vault) => sum + (vault.totalVaultValue || vault.liquidBalance), 0),
+      yieldEnabledVaults: vaults.filter((vault) => vault.yieldEnabled).length
+    };
+  } catch (error) {
+    devError("Failed to fetch protocol overview:", error);
+    return {
+      totalVaults: 0,
+      activeVaults: 0,
+      totalTrackedValue: 0,
+      yieldEnabledVaults: 0
+    };
   }
 }
 

@@ -123,11 +123,17 @@ export async function waitForCreateVaultOutcome(
   options?: {
     timeoutMs?: number;
     pollIntervalMs?: number;
+    initialDelayMs?: number;
   }
 ): Promise<CreateVaultOutcome> {
   const timeoutMs = options?.timeoutMs ?? 180000;
   const pollIntervalMs = options?.pollIntervalMs ?? 4000;
+  const initialDelayMs = options?.initialDelayMs ?? 3000;
   const started = Date.now();
+
+  if (initialDelayMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, initialDelayMs));
+  }
 
   while (Date.now() - started < timeoutMs) {
     const tx = await fetchTransactionStatus(txId);

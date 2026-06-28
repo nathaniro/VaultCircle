@@ -10,7 +10,7 @@ import StatCard from "@/components/StatCard";
 import TxStatus from "@/components/TxStatus";
 import VaultCard from "@/components/VaultCard";
 import { clearPendingVaultCreation, getPendingVaultCreation, matchesPendingVault, type PendingVaultCreation } from "@/lib/pending-vault";
-import { getMemberVaults, getVault } from "@/lib/stacks";
+import { getMemberVaults, getProtocolOverview, getVault, type ProtocolOverview } from "@/lib/stacks";
 import { devWarn, isSafeUint, normalizeUint } from "@/lib/validation";
 import { useWallet } from "@/lib/wallet";
 import type { Vault } from "@/types";
@@ -27,6 +27,7 @@ function VaultsPageContent() {
   const [vaults, setVaults] = useState<Vault[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [protocolOverview, setProtocolOverview] = useState<ProtocolOverview | null>(null);
   const [pendingVault, setPendingVault] = useState<PendingVaultCreation | null>(null);
   const [refreshingPendingVault, setRefreshingPendingVault] = useState(false);
   const [createdVaultVisible, setCreatedVaultVisible] = useState(false);
@@ -43,6 +44,23 @@ function VaultsPageContent() {
     if (!createdVaultIdParam || createdVaultId !== null) return;
     devWarn("Ignoring invalid created vault id query param on /vaults:", createdVaultIdParam);
   }, [createdVaultId, createdVaultIdParam]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProtocolTotals() {
+      const overview = await getProtocolOverview();
+      if (!cancelled) {
+        setProtocolOverview(overview);
+      }
+    }
+
+    void loadProtocolTotals();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshNonce]);
 
   useEffect(() => {
     if (!connected || !address) return;
@@ -73,9 +91,12 @@ function VaultsPageContent() {
           devWarn("Skipping invalid vault ids on /vaults:", vaultIds);
         }
 
-        const loadedVaults = (await Promise.all(validVaultIds.map((vaultId) => getVault(vaultId, { skipZest: true })))).filter(
-          (vault): vault is Vault => vault !== null
-        );
+        const loadedVaults: Vault[] = [];
+        for (const vaultId of validVaultIds) {
+          if (cancelled) return;
+          const vault = await getVault(vaultId, { skipZest: true });
+          if (vault !== null) loadedVaults.push(vault);
+        }
         const createdVault =
           createdVaultId !== null && !validVaultIds.includes(createdVaultId) ? await getVault(createdVaultId, { skipZest: true }) : null;
         const combinedVaults = [...loadedVaults, ...(createdVault ? [createdVault] : [])];
@@ -200,12 +221,6 @@ function VaultsPageContent() {
     () => (revealedVault ? visibleVaults.filter((vault) => vault.vaultId !== revealedVault.vaultId) : visibleVaults),
     [revealedVault, visibleVaults]
   );
-  const totalValue = useMemo(
-    () => visibleVaults.reduce((sum, vault) => sum + (vault.totalVaultValue || vault.liquidBalance), 0),
-    [visibleVaults]
-  );
-  const activeVaults = useMemo(() => visibleVaults.filter((vault) => vault.status === "ACTIVE").length, [visibleVaults]);
-  const yieldEnabled = useMemo(() => visibleVaults.filter((vault) => vault.yieldEnabled).length, [visibleVaults]);
   const showPendingVaultCard = Boolean(pendingVault) || Boolean(revealedVault);
   const refreshButtonBusy = loading || manualRefreshing;
 
@@ -232,44 +247,38 @@ function VaultsPageContent() {
     );
   }
 
-  if (!connected) {
-    return (
-      <div className="page-wrap">
-        <EmptyState
-          title="Connect a wallet to view your vault dashboard"
-          description="VaultCircle will show every vault where your testnet wallet is a member, along with treasury balances, approval thresholds, and active governance actions."
-        />
-        <div className="mt-6 flex justify-center">
-          <button onClick={() => connect()} className="btn-primary">
-            Connect Xverse or Leather
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="page-wrap space-y-8">
       <PageHeader
         eyebrow="Vault Dashboard"
-        title="Your shared treasuries"
-        description="See the vaults connected to your wallet, understand how much value each one holds, and move into the next action with confidence."
+        title={connected ? "Your shared treasuries" : "VaultCircle protocol overview"}
+        description={
+          connected
+            ? "See the vaults connected to your wallet, understand how much value each one holds, and move into the next action with confidence."
+            : "Track protocol-wide vault activity before connecting a wallet, then sign in when you are ready to open your member dashboard."
+        }
         actions={
           <div className="flex flex-wrap gap-3">
-            {pendingVault && !revealedVault && (
+            {connected && pendingVault && !revealedVault && (
               <button onClick={handleManualRefresh} disabled={refreshButtonBusy} className="btn-secondary px-4 py-3 text-sm">
                 {refreshButtonBusy ? "Refreshing..." : "Refresh now"}
               </button>
             )}
-            <Link href="/create-vault" className="btn-primary">
-              Create Vault
-            </Link>
+            {connected ? (
+              <Link href="/create-vault" className="btn-primary">
+                Create Vault
+              </Link>
+            ) : (
+              <button onClick={() => connect()} className="btn-primary">
+                Connect Wallet
+              </button>
+            )}
           </div>
         }
         meta={
           <div className="flex flex-wrap gap-3 text-sm text-slate-400">
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
-              Connected wallet role: member signer
+              {connected ? "Connected wallet role: member signer" : "Public mode: protocol-wide visibility"}
             </span>
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
               Network: Stacks Testnet
@@ -321,12 +330,44 @@ function VaultsPageContent() {
       )}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Vaults connected" value={String(visibleVaults.length)} sub="Treasuries where this wallet is a member" />
-        <StatCard label="Active vaults" value={String(activeVaults)} sub="Vaults still open for deposits, votes, and treasury actions" />
-        <StatCard label="Tracked value" value={`${satsTosBTC(totalValue)} sBTC`} sub={`${yieldEnabled} vault${yieldEnabled === 1 ? "" : "s"} with yield enabled`} accent />
+        <StatCard
+          label="Connected vaults"
+          value={protocolOverview ? String(protocolOverview.totalVaults) : "..."}
+          sub={connected ? `${visibleVaults.length} connected to this wallet` : "Total vaults currently registered on VaultCircle"}
+        />
+        <StatCard
+          label="Active vaults"
+          value={protocolOverview ? String(protocolOverview.activeVaults) : "..."}
+          sub="Vaults still open for deposits, votes, and treasury actions"
+        />
+        <StatCard
+          label="Tracked value"
+          value={protocolOverview ? `${satsTosBTC(protocolOverview.totalTrackedValue)} sBTC` : "..."}
+          sub={
+            protocolOverview
+              ? `${protocolOverview.yieldEnabledVaults} vault${protocolOverview.yieldEnabledVaults === 1 ? "" : "s"} with yield enabled`
+              : "Loading protocol totals"
+          }
+          accent
+        />
       </div>
 
-      {loading && (
+      {!connected && (
+        <EmptyState
+          title="Connect a wallet to view your member vaults"
+          description="VaultCircle will show every vault where your testnet wallet is a member, alongside treasury balances, approval thresholds, and active governance actions."
+        />
+      )}
+
+      {!connected && (
+        <div className="flex justify-center">
+          <button onClick={() => connect()} className="btn-primary">
+            Connect Xverse or Leather
+          </button>
+        </div>
+      )}
+
+      {connected && loading && (
         <div className="grid gap-6 md:grid-cols-2">
           {Array.from({ length: 4 }).map((_, index) => (
             <div key={index} className="surface-card h-64">
@@ -349,7 +390,7 @@ function VaultsPageContent() {
         </div>
       )}
 
-      {!loading && visibleVaultsWithoutReveal.length === 0 && !showPendingVaultCard && (
+      {connected && !loading && visibleVaultsWithoutReveal.length === 0 && !showPendingVaultCard && (
         <EmptyState
           title={refreshingPendingVault ? "Your vault is still being indexed" : "No vaults yet for this wallet"}
           description={
@@ -362,7 +403,7 @@ function VaultsPageContent() {
         />
       )}
 
-      {!loading && (visibleVaultsWithoutReveal.length > 0 || showPendingVaultCard) && (
+      {connected && !loading && (visibleVaultsWithoutReveal.length > 0 || showPendingVaultCard) && (
         <div className="grid gap-6 lg:grid-cols-2">
           {showPendingVaultCard && (
             <div ref={pendingVaultSlotRef}>
@@ -371,11 +412,18 @@ function VaultsPageContent() {
                 revealedVault={revealedVault}
                 refreshing={refreshButtonBusy || refreshingPendingVault}
                 onRefresh={handleManualRefresh}
+                showMembershipBadge={Boolean(address)}
+                creatorMember={Boolean(address && revealedVault && revealedVault.creator === address)}
               />
             </div>
           )}
           {visibleVaultsWithoutReveal.map((vault) => (
-            <VaultCard key={vault.vaultId} vault={vault} />
+            <VaultCard
+              key={vault.vaultId}
+              vault={vault}
+              showMembershipBadge={Boolean(address)}
+              creatorMember={Boolean(address && vault.creator === address)}
+            />
           ))}
         </div>
       )}

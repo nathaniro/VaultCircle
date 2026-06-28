@@ -8,6 +8,7 @@ import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import StepIndicator from "@/components/StepIndicator";
 import TxStatus from "@/components/TxStatus";
+import VaultMembershipBadge from "@/components/VaultMembershipBadge";
 import { getMember, getVault } from "@/lib/stacks";
 import { txDeposit } from "@/lib/transactions";
 import { formatAppError, normalizeUint } from "@/lib/validation";
@@ -85,6 +86,7 @@ export default function DepositPage() {
     vault && vault.totalContributed > 0 && member
       ? ((member.contributed / vault.totalContributed) * 100).toFixed(2)
       : "0.00";
+  const isActiveMember = Boolean(member?.active);
 
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
@@ -97,6 +99,11 @@ export default function DepositPage() {
 
     if (!connected || !address) {
       connect();
+      return;
+    }
+
+    if (!isActiveMember) {
+      setFormError("This connected wallet is not an active member of the vault, so it cannot submit deposit transactions.");
       return;
     }
 
@@ -157,8 +164,9 @@ export default function DepositPage() {
         backLabel="Back to vault overview"
         meta={
           <div className="flex flex-wrap gap-3 text-sm text-slate-400">
+            {isActiveMember && <VaultMembershipBadge creator={vault.creator === address} />}
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
-              Connected role: depositor and member
+              Connected role: {isActiveMember ? "depositor and member" : connected ? "read-only viewer" : "connect wallet to deposit"}
             </span>
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
               Next step: sign a deposit transaction in your wallet
@@ -224,6 +232,14 @@ export default function DepositPage() {
             />
           )}
 
+          {connected && !isActiveMember && (
+            <TxStatus
+              state="error"
+              title="Member action locked"
+              description="This wallet can review the vault, but only active members can sign a deposit into the shared treasury."
+            />
+          )}
+
           {formError && <TxStatus state="error" title="Deposit not submitted" description={formError} />}
 
           {txId ? (
@@ -236,8 +252,8 @@ export default function DepositPage() {
               actionLabel="Back to Vault Overview"
             />
           ) : (
-            <button type="submit" className="btn-primary w-full" disabled={submitting}>
-              {submitting ? "Awaiting wallet confirmation..." : "Deposit sBTC"}
+            <button type="submit" className="btn-primary w-full" disabled={submitting || (connected && !isActiveMember)}>
+              {submitting ? "Awaiting wallet confirmation..." : connected && !isActiveMember ? "Only Members Can Deposit" : "Deposit sBTC"}
             </button>
           )}
         </form>

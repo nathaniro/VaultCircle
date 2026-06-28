@@ -1,4 +1,5 @@
 import Link from "next/link";
+import VaultMembershipBadge from "@/components/VaultMembershipBadge";
 import type { PendingVaultCreation } from "@/lib/pending-vault";
 import type { Vault } from "@/types";
 import { satsTosBTC } from "@/types";
@@ -8,13 +9,17 @@ interface PendingVaultCardProps {
   revealedVault?: Vault | null;
   refreshing?: boolean;
   onRefresh?: () => void;
+  showMembershipBadge?: boolean;
+  creatorMember?: boolean;
 }
 
 export default function PendingVaultCard({
   pendingVault,
   revealedVault,
   refreshing = false,
-  onRefresh
+  onRefresh,
+  showMembershipBadge = false,
+  creatorMember = false
 }: PendingVaultCardProps) {
   if (revealedVault) {
     return (
@@ -28,9 +33,12 @@ export default function PendingVaultCard({
               proposals, and member coordination.
             </p>
           </div>
-          <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">
-            Live
-          </span>
+          <div className="flex flex-col items-end gap-3">
+            {showMembershipBadge && <VaultMembershipBadge compact creator={creatorMember} label="Member Access" />}
+            <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">
+              Live
+            </span>
+          </div>
         </div>
 
         <div className="divider mt-6 pt-6" />

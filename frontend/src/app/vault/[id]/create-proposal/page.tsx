@@ -7,9 +7,11 @@ import InfoCard from "@/components/InfoCard";
 import PageHeader from "@/components/PageHeader";
 import StepIndicator from "@/components/StepIndicator";
 import TxStatus from "@/components/TxStatus";
+import VaultMembershipBadge from "@/components/VaultMembershipBadge";
 import { DEFAULT_PROPOSAL_DURATION, PROTOCOL } from "@/lib/contracts";
 import { getVault } from "@/lib/stacks";
 import { txCreateProposal } from "@/lib/transactions";
+import { useVaultMembership } from "@/lib/use-vault-membership";
 import { formatAppError, isValidStacksAddress, normalizeUint } from "@/lib/validation";
 import { useWallet } from "@/lib/wallet";
 import { PROPOSAL_TYPE_IDS, PROPOSAL_TYPE_LABELS, sBTCToSats, satsTosBTC, type ProposalType } from "@/types";
@@ -45,6 +47,7 @@ export default function CreateProposalPage() {
   const vaultId = normalizeUint(id);
   const { connected, address, connect, selectedWalletName } = useWallet();
   const router = useRouter();
+  const { isMember } = useVaultMembership(vaultId, address);
 
   const [vault, setVault] = useState<Vault | null>(null);
   const [proposalType, setProposalType] = useState<ProposalType>("WITHDRAW_SINGLE");
@@ -117,6 +120,11 @@ export default function CreateProposalPage() {
 
     if (!connected || !address) {
       connect();
+      return;
+    }
+
+    if (!isMember) {
+      setFormError("This connected wallet is not an active vault member, so it cannot create proposals for this treasury.");
       return;
     }
 
@@ -210,11 +218,12 @@ export default function CreateProposalPage() {
         backLabel="Back to proposals"
         meta={
           <div className="flex flex-wrap gap-3 text-sm text-slate-400">
+            {isMember && vault && <VaultMembershipBadge creator={vault.creator === address} />}
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
               Current vault threshold {vault.thresholdPercent}%
             </span>
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
-              Wallet role: proposer
+              Wallet role: {isMember ? "proposer" : connected ? "read-only viewer" : "connect wallet to propose"}
             </span>
           </div>
         }
@@ -277,7 +286,7 @@ export default function CreateProposalPage() {
               {proposalType === "DEPOSIT_TO_ZEST" && (
                 <p className="helper-text">
                   VaultCircle caps Zest allocation to {PROTOCOL.maxZestAllocationPct}% of total treasury value. Current approximate cap:{" "}
-                  {satsTosBTC(Math.floor((vault.totalVaultValue || vault.liquidBalance) * 0.7))} sBTC.
+                  {satsTosBTC(Math.floor((vault.totalVaultValue || vault.liquidBalance) * (PROTOCOL.maxZestAllocationPct / 100)))} sBTC.
                 </p>
               )}
             </div>
@@ -345,10 +354,26 @@ export default function CreateProposalPage() {
             </div>
           )}
 
+          {!connected && (
+            <TxStatus
+              state="pending"
+              title="Connect a wallet to continue"
+              description="Only connected vault members can create governance proposals. The draft stays here while you connect."
+            />
+          )}
+
+          {connected && !isMember && (
+            <TxStatus
+              state="error"
+              title="Member action locked"
+              description="This wallet can review the proposal builder, but only active vault members can submit new proposals."
+            />
+          )}
+
           {formError && <TxStatus state="error" title="Proposal not submitted" description={formError} />}
 
-          <button type="submit" className="btn-primary w-full" disabled={submitting}>
-            {submitting ? "Awaiting wallet confirmation..." : "Create Proposal"}
+          <button type="submit" className="btn-primary w-full" disabled={submitting || (connected && !isMember)}>
+            {submitting ? "Awaiting wallet confirmation..." : connected && !isMember ? "Only Members Can Propose" : "Create Proposal"}
           </button>
           <p className="text-center text-sm text-slate-500">
             When you submit, {selectedWalletName ?? "your wallet"} will sign the proposal creation request exactly as shown above.

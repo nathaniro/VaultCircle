@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import EmptyState from "@/components/EmptyState";
 import InfoCard from "@/components/InfoCard";
 import PageHeader from "@/components/PageHeader";
+import VaultMembershipBadge from "@/components/VaultMembershipBadge";
 import { useWallet } from "@/lib/wallet";
 import { getMember, getMemberAt, getVault } from "@/lib/stacks";
 import { formatAppError, normalizeUint } from "@/lib/validation";
@@ -101,6 +102,7 @@ export default function MembersPage() {
 
   const totalContributed = vault.totalContributed;
   const required = calcRequiredApprovals(vault.memberCount, vault.thresholdPercent);
+  const currentMember = members.find((member) => member.address === address && member.active);
 
   return (
     <div className="page-wrap space-y-8">
@@ -114,6 +116,16 @@ export default function MembersPage() {
           <Link href={`/vault/${vaultId}/create-proposal`} className="btn-secondary">
             Propose Member Change
           </Link>
+        }
+        meta={
+          currentMember ? (
+            <div className="flex flex-wrap gap-3 text-sm text-slate-400">
+              <VaultMembershipBadge creator={vault.creator === address} />
+              <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+                {required} approvals required across {vault.memberCount} members
+              </span>
+            </div>
+          ) : undefined
         }
       />
 

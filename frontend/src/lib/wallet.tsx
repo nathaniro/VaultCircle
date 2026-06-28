@@ -1,18 +1,21 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
-import {
-  AppConfig,
-  UserSession,
-  clearSelectedProviderId,
-  getSelectedProviderId,
-  setSelectedProviderId,
-  showConnect
-} from "@stacks/connect";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { clearSelectedProviderId, showConnect } from "@stacks/connect";
 import { APP_NETWORK } from "./contracts";
+import { debugLog } from "./debug";
 import { getSbtcBalance } from "./stacks";
+import { APP_DETAILS, repairUserSessionStorage, resetUserSessionStorage, userSession } from "./app-session";
+import {
+  clearAppSelectedWalletProviderId,
+  getInstalledWalletProviderIds,
+  getSelectedWalletProviderId,
+  resolveWalletProviderById,
+  setAppSelectedWalletProviderId,
+  type WalletProviderId
+} from "./wallet-provider";
 
-export type WalletProviderId = "LeatherProvider" | "XverseProviders.StacksProvider";
+export type { WalletProviderId } from "./wallet-provider";
 
 export interface WalletOption {
   id: WalletProviderId;
@@ -38,19 +41,6 @@ interface WalletContextType {
   closeWalletPicker: () => void;
 }
 
-interface WalletSnapshot {
-  walletReady: boolean;
-  connected: boolean;
-  address: string | null;
-  selectedWalletId: WalletProviderId | null;
-  walletOptions: WalletOption[];
-}
-
-const appConfig = new AppConfig(["store_write", "publish_data"]);
-export const userSession = new UserSession({ appConfig });
-const appIcon =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='24' fill='%230c1220'/%3E%3Cpath d='M32 34h16l16 40 16-40h16L72 94H56z' fill='%23f5c24b'/%3E%3C/svg%3E";
-
 const WALLET_DEFINITIONS = [
   {
     id: "LeatherProvider" as const,
@@ -66,6 +56,27 @@ const WALLET_DEFINITIONS = [
   }
 ];
 
+const defaultWalletOptions: WalletOption[] = WALLET_DEFINITIONS.map((wallet) => ({
+  ...wallet,
+  installed: false
+}));
+
+function logWallet(message: string, details?: Record<string, unknown>) {
+  debugLog("Wallet", message, details);
+}
+
+function getUserSignedInState() {
+  repairUserSessionStorage();
+
+  try {
+    return userSession.isUserSignedIn();
+  } catch (error) {
+    console.error("[VaultCircle][Wallet] getUserSignedInState(): failed to inspect session", error);
+    resetUserSessionStorage();
+    return false;
+  }
+}
+
 const WalletContext = createContext<WalletContextType>({
   walletReady: false,
   connected: false,
@@ -74,7 +85,7 @@ const WalletContext = createContext<WalletContextType>({
   networkLabel: "Stacks Testnet",
   selectedWalletId: null,
   selectedWalletName: null,
-  walletOptions: [],
+  walletOptions: defaultWalletOptions,
   walletPickerOpen: false,
   connect: () => {},
   disconnect: () => {},
@@ -83,160 +94,219 @@ const WalletContext = createContext<WalletContextType>({
 });
 
 function getSessionAddress(): string | null {
+  if (!getUserSignedInState()) {
+    logWallet("getSessionAddress(): user not signed in");
+    return null;
+  }
+
   try {
     const userData = userSession.loadUserData();
-    return userData?.profile?.stxAddress?.testnet ?? null;
-  } catch {
+    const networkKey: "mainnet" | "testnet" = APP_NETWORK;
+    const address = userData?.profile?.stxAddress?.[networkKey] ?? null;
+    logWallet("getSessionAddress(): loaded session address", {
+      networkKey,
+      address
+    });
+    return address;
+  } catch (error) {
+    console.error("[VaultCircle][Wallet] getSessionAddress(): failed to load user data", error);
+    resetUserSessionStorage();
     return null;
   }
 }
-
-function getProviderFromWindow(id: WalletProviderId) {
-  if (typeof window === "undefined") return null;
-  return id.split(".").reduce<unknown>((current, key) => {
-    if (!current || typeof current !== "object") return null;
-    return (current as Record<string, unknown>)[key] ?? null;
-  }, window as unknown as Record<string, unknown>);
-}
-
-function buildWalletOptions(): WalletOption[] {
-  return WALLET_DEFINITIONS.map((wallet) => ({
-    ...wallet,
-    installed: Boolean(getProviderFromWindow(wallet.id))
-  }));
-}
-
-function getDefaultWalletOptions(): WalletOption[] {
-  return WALLET_DEFINITIONS.map((wallet) => ({
-    ...wallet,
-    installed: false
-  }));
-}
-
-const DEFAULT_WALLET_SNAPSHOT: WalletSnapshot = {
-  walletReady: false,
-  connected: false,
-  address: null,
-  selectedWalletId: null,
-  walletOptions: getDefaultWalletOptions()
-};
 
 function getWalletName(walletId: WalletProviderId | null) {
   return WALLET_DEFINITIONS.find((wallet) => wallet.id === walletId)?.name ?? null;
 }
 
-// Module-level cache so useSyncExternalStore gets the same reference when nothing changed.
-// useSyncExternalStore uses Object.is to detect changes; a new object every render = infinite loop.
-let _cachedSnapshot: WalletSnapshot = DEFAULT_WALLET_SNAPSHOT;
-
-function snapshotsEqual(a: WalletSnapshot, b: WalletSnapshot): boolean {
-  if (a.walletReady !== b.walletReady) return false;
-  if (a.connected !== b.connected) return false;
-  if (a.address !== b.address) return false;
-  if (a.selectedWalletId !== b.selectedWalletId) return false;
-  if (a.walletOptions.length !== b.walletOptions.length) return false;
-  for (let i = 0; i < a.walletOptions.length; i++) {
-    if (a.walletOptions[i].installed !== b.walletOptions[i].installed) return false;
-  }
-  return true;
+function buildWalletOptions(): WalletOption[] {
+  const installedProviders = new Set(getInstalledWalletProviderIds());
+  return WALLET_DEFINITIONS.map((wallet) => ({
+    ...wallet,
+    installed: installedProviders.has(wallet.id)
+  }));
 }
 
-function readWalletSnapshot(): WalletSnapshot {
-  if (typeof window === "undefined") {
-    return DEFAULT_WALLET_SNAPSHOT;
-  }
-
-  try {
-    const signedIn = userSession.isUserSignedIn();
-    const sessionAddress = signedIn ? getSessionAddress() : null;
-    const walletId = getSelectedProviderId();
-    const selectedWalletId =
-      walletId === "LeatherProvider" || walletId === "XverseProviders.StacksProvider" ? walletId : null;
-
-    const next: WalletSnapshot = {
-      walletReady: true,
-      connected: Boolean(sessionAddress),
-      address: sessionAddress,
-      selectedWalletId,
-      walletOptions: buildWalletOptions()
-    };
-
-    if (snapshotsEqual(_cachedSnapshot, next)) return _cachedSnapshot;
-    _cachedSnapshot = next;
-    return _cachedSnapshot;
-  } catch {
-    const fallback: WalletSnapshot = { ...DEFAULT_WALLET_SNAPSHOT, walletReady: true };
-    if (snapshotsEqual(_cachedSnapshot, fallback)) return _cachedSnapshot;
-    _cachedSnapshot = fallback;
-    return _cachedSnapshot;
-  }
-}
-
-function subscribeToWalletSnapshot(onStoreChange: () => void) {
-  if (typeof window === "undefined") {
-    return () => {};
-  }
-
-  const handleChange = () => onStoreChange();
-
-  window.addEventListener("focus", handleChange);
-  window.addEventListener("storage", handleChange);
-
-  return () => {
-    window.removeEventListener("focus", handleChange);
-    window.removeEventListener("storage", handleChange);
-  };
+function getCurrentRoute() {
+  if (typeof window === "undefined") return "/";
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
+  const [walletReady, setWalletReady] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [address, setAddress] = useState<string | null>(null);
   const [sbtcBalance, setSbtcBalance] = useState(0);
+  const [selectedWalletId, setSelectedWalletId] = useState<WalletProviderId | null>(null);
+  const [walletOptions, setWalletOptions] = useState<WalletOption[]>(defaultWalletOptions);
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
-  const [, setWalletVersion] = useState(0);
-  const walletSnapshot = useSyncExternalStore(subscribeToWalletSnapshot, readWalletSnapshot, () => DEFAULT_WALLET_SNAPSHOT);
-  const { walletReady, connected, address, selectedWalletId, walletOptions } = walletSnapshot;
+
+  const refreshWalletState = useCallback(async () => {
+    const signedIn = getUserSignedInState();
+    logWallet("refreshWalletState(): start", {
+      isUserSignedIn: signedIn,
+      isSignInPending: userSession.isSignInPending()
+    });
+    const nextSelectedWalletId = getSelectedWalletProviderId();
+    const nextAddress = getSessionAddress();
+    const nextWalletOptions = buildWalletOptions();
+
+    setSelectedWalletId(nextSelectedWalletId);
+    setWalletOptions(nextWalletOptions);
+    setConnected(Boolean(nextAddress));
+    setAddress(nextAddress);
+    setWalletReady(true);
+    logWallet("refreshWalletState(): session snapshot", {
+      nextSelectedWalletId,
+      nextAddress,
+      installedWalletOptions: nextWalletOptions.map((wallet) => ({
+        id: wallet.id,
+        installed: wallet.installed
+      }))
+    });
+
+    if (!nextAddress) {
+      logWallet("refreshWalletState(): no address found, resetting sBTC balance");
+      setSbtcBalance(0);
+      return;
+    }
+
+    try {
+      const balance = await getSbtcBalance(nextAddress);
+      logWallet("refreshWalletState(): fetched sBTC balance", {
+        address: nextAddress,
+        balance
+      });
+      setSbtcBalance(balance);
+    } catch (error) {
+      console.error("[VaultCircle][Wallet] refreshWalletState(): failed to fetch sBTC balance", error);
+      setSbtcBalance(0);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!address) return;
-    getSbtcBalance(address).then(setSbtcBalance).catch(() => setSbtcBalance(0));
-  }, [address]);
+    let active = true;
+
+    const syncWalletState = async () => {
+      try {
+        if (userSession.isSignInPending()) {
+          logWallet("syncWalletState(): found pending sign-in response, handling it now");
+          await userSession.handlePendingSignIn();
+          logWallet("syncWalletState(): handlePendingSignIn() resolved");
+        }
+      } catch (error) {
+        console.error("[VaultCircle][Wallet] syncWalletState(): handlePendingSignIn() failed", error);
+        resetUserSessionStorage();
+      }
+
+      if (!active) return;
+      await refreshWalletState();
+    };
+
+    void syncWalletState();
+
+    const handleBrowserSync = () => {
+      void refreshWalletState();
+    };
+
+    window.addEventListener("focus", handleBrowserSync);
+    window.addEventListener("storage", handleBrowserSync);
+
+    return () => {
+      active = false;
+      window.removeEventListener("focus", handleBrowserSync);
+      window.removeEventListener("storage", handleBrowserSync);
+    };
+  }, [refreshWalletState]);
 
   const networkLabel = APP_NETWORK === "testnet" ? "Stacks Testnet" : APP_NETWORK;
   const selectedWalletName = getWalletName(selectedWalletId);
 
   const openWalletPicker = () => {
+    logWallet("openWalletPicker()");
+    setWalletOptions(buildWalletOptions());
     setWalletPickerOpen(true);
   };
 
-  const closeWalletPicker = () => setWalletPickerOpen(false);
+  const closeWalletPicker = () => {
+    logWallet("closeWalletPicker()");
+    setWalletPickerOpen(false);
+  };
 
   const connect = (walletId?: WalletProviderId) => {
+    logWallet("connect(): invoked", {
+      walletId: walletId ?? null,
+      currentSelectedWalletId: selectedWalletId,
+      walletReady,
+      connected,
+      address
+    });
+
     if (!walletId) {
       openWalletPicker();
       return;
     }
 
-    setSelectedProviderId(walletId);
-    setWalletPickerOpen(false);
-    setWalletVersion((current) => current + 1);
-
-    showConnect({
-      appDetails: {
-        name: "VaultCircle",
-        icon: appIcon
-      },
-      redirectTo: "/",
-      onFinish: () => {
-        setWalletVersion((current) => current + 1);
-      },
-      userSession
+    const provider = resolveWalletProviderById(walletId);
+    logWallet("connect(): resolved provider", {
+      walletId,
+      providerFound: Boolean(provider),
+      providerId: provider?.id ?? null,
+      isLeather: Boolean(provider?.isLeather)
     });
+    setAppSelectedWalletProviderId(walletId);
+    setSelectedWalletId(walletId);
+    setWalletOptions(buildWalletOptions());
+    setWalletPickerOpen(false);
+
+    if (!provider) {
+      console.warn("[VaultCircle][Wallet] connect(): provider missing after selection");
+      void refreshWalletState();
+      return;
+    }
+
+    logWallet("connect(): calling showConnect()", {
+      walletId,
+      redirectTo: getCurrentRoute()
+    });
+    try {
+      showConnect(
+        {
+          appDetails: APP_DETAILS,
+          redirectTo: getCurrentRoute(),
+          onFinish: () => {
+            logWallet("connect(): showConnect() onFinish callback fired", { walletId });
+            void refreshWalletState();
+          },
+          onCancel: () => {
+            console.warn("[VaultCircle][Wallet] connect(): showConnect() onCancel callback fired", { walletId });
+            void refreshWalletState();
+          },
+          userSession
+        },
+        provider
+      );
+      logWallet("connect(): showConnect() invoked successfully", { walletId });
+    } catch (error) {
+      console.error("[VaultCircle][Wallet] connect(): showConnect() threw synchronously", error);
+      void refreshWalletState();
+    }
   };
 
   const disconnect = () => {
-    userSession.signUserOut("/");
+    logWallet("disconnect()", {
+      selectedWalletId,
+      address
+    });
+    userSession.signUserOut(getCurrentRoute());
+    clearAppSelectedWalletProviderId();
     clearSelectedProviderId();
+    setConnected(false);
+    setAddress(null);
+    setSelectedWalletId(null);
     setSbtcBalance(0);
-    setWalletVersion((current) => current + 1);
+    setWalletOptions(buildWalletOptions());
+    setWalletReady(true);
   };
 
   return (

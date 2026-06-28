@@ -9,12 +9,17 @@ import StepIndicator from "@/components/StepIndicator";
 import TxStatus from "@/components/TxStatus";
 import { MAX_ADDITIONAL_MEMBERS, getNormalizedAdditionalMembers, validateCreateVaultForm } from "@/lib/create-vault";
 import { CONTRACTS, DEPLOYER_ADDRESS, PROTOCOL, STACKS_EXPLORER_URL } from "@/lib/contracts";
+import { debugLog } from "@/lib/debug";
 import { clearPendingVaultCreation, savePendingVaultCreation } from "@/lib/pending-vault";
 import { checkProtocolStatus, type ProtocolStatus } from "@/lib/stacks";
 import { txCreateVault, txInitializeProtocol } from "@/lib/transactions";
 import { waitForCreateVaultOutcome } from "@/lib/tx-status";
 import { devWarn, formatAppError } from "@/lib/validation";
 import { useWallet } from "@/lib/wallet";
+
+function logCreateVault(message: string, details?: Record<string, unknown>) {
+  debugLog("CreateVault", message, details);
+}
 
 export default function CreateVaultPage() {
   const { walletReady, connected, address, connect, selectedWalletName } = useWallet();
@@ -39,18 +44,41 @@ export default function CreateVaultPage() {
   const isAdmin = connected && address?.toLowerCase() === DEPLOYER_ADDRESS.toLowerCase();
 
   useEffect(() => {
+    logCreateVault("page mounted: checking protocol status");
     checkProtocolStatus().then(setProtocolStatus).catch(() => {
+      console.warn("[VaultCircle][CreateVault] protocol status check failed; using unknown fallback");
       setProtocolStatus({ initialized: null, sbtcContract: null });
     });
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
+    logCreateVault("component mounted");
     return () => {
+      logCreateVault("component unmounted");
       isMountedRef.current = false;
     };
   }, []);
 
+  useEffect(() => {
+    logCreateVault("wallet state changed", {
+      walletReady,
+      connected,
+      address,
+      selectedWalletName: selectedWalletName ?? null
+    });
+  }, [walletReady, connected, address, selectedWalletName]);
+
+  useEffect(() => {
+    logCreateVault("submission state changed", {
+      submitting,
+      pendingTxId,
+      hasError: Boolean(error)
+    });
+  }, [submitting, pendingTxId, error]);
+
   function addMemberField() {
+    logCreateVault("addMemberField()", { currentMembers: members.length });
     if (members.length < MAX_ADDITIONAL_MEMBERS) setMembers([...members, ""]);
   }
 
@@ -66,6 +94,17 @@ export default function CreateVaultPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    logCreateVault("handleSubmit(): clicked Create Vault", {
+      walletReady,
+      connected,
+      address,
+      selectedWalletName: selectedWalletName ?? null,
+      name,
+      threshold,
+      yieldEnabled,
+      beneficiary,
+      members
+    });
     if (submitting) return;
 
     setError("");
@@ -73,6 +112,7 @@ export default function CreateVaultPage() {
     setPendingTxId(null);
 
     if (!connected || !address) {
+      console.warn("[VaultCircle][CreateVault] handleSubmit(): wallet not connected, opening wallet picker");
       connect();
       return;
     }
@@ -88,26 +128,58 @@ export default function CreateVaultPage() {
     });
 
     if (validation.error) {
+      console.warn("[VaultCircle][CreateVault] handleSubmit(): validation failed", {
+        error: validation.error
+      });
       setError(validation.error);
       return;
     }
 
+    logCreateVault("handleSubmit(): validation passed", {
+      totalMembers: validation.totalMembers,
+      normalizedMembers: validation.normalizedMembers,
+      beneficiary: beneficiary.trim() || null
+    });
     setSubmitting(true);
     try {
       const txId = await new Promise<string>((resolve, reject) => {
         let settled = false;
+        const startedAt = Date.now();
+        const unresolvedWarning = window.setTimeout(() => {
+          console.warn("[VaultCircle][CreateVault] handleSubmit(): txCreateVault promise still pending after 20s", {
+            selectedWalletName: selectedWalletName ?? null,
+            connected,
+            address
+          });
+        }, 20_000);
 
         const settleResolve = (submittedTxId: string) => {
           if (settled) return;
           settled = true;
+          window.clearTimeout(unresolvedWarning);
+          logCreateVault("handleSubmit(): txCreateVault onFinish fired", {
+            submittedTxId,
+            elapsedMs: Date.now() - startedAt
+          });
           resolve(submittedTxId);
         };
 
         const settleReject = (reason: unknown) => {
           if (settled) return;
           settled = true;
+          window.clearTimeout(unresolvedWarning);
+          console.error("[VaultCircle][CreateVault] handleSubmit(): txCreateVault rejected", reason);
           reject(reason);
         };
+
+        logCreateVault("handleSubmit(): calling txCreateVault()", {
+          selectedWalletName: selectedWalletName ?? null,
+          address,
+          name: name.trim(),
+          threshold,
+          yieldEnabled,
+          normalizedMembers: validation.normalizedMembers
+        });
 
         void txCreateVault(
           name.trim(),
@@ -118,12 +190,17 @@ export default function CreateVaultPage() {
           ({ txId: submittedTxId }) => settleResolve(submittedTxId),
           settleReject
         ).catch((submitError) => {
+          console.error("[VaultCircle][CreateVault] handleSubmit(): txCreateVault.catch()", submitError);
           settleReject(submitError);
         });
       });
 
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current) {
+        logCreateVault("handleSubmit(): component unmounted before txId handling");
+        return;
+      }
 
+      logCreateVault("handleSubmit(): txId resolved and saving pending vault creation", { txId });
       savePendingVaultCreation({
         txId,
         walletAddress: address,
@@ -135,12 +212,23 @@ export default function CreateVaultPage() {
       });
       setPendingTxId(txId);
       setPendingMessage(
-        "Your wallet broadcast the create-vault transaction. Waiting for Stacks Testnet to confirm it and return the new vault id."
+        "Your wallet submitted the create-vault transaction. VaultCircle is waiting for testnet confirmation and registry indexing before opening the treasury."
       );
 
       try {
+        logCreateVault("handleSubmit(): waiting for create-vault outcome", { txId });
         const outcome = await waitForCreateVaultOutcome(txId);
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current) {
+          logCreateVault("handleSubmit(): component unmounted while waiting for outcome", { txId });
+          return;
+        }
+
+        logCreateVault("handleSubmit(): received create-vault outcome", {
+          txId,
+          status: outcome.status,
+          vaultId: "vaultId" in outcome ? outcome.vaultId ?? null : null,
+          message: "message" in outcome ? outcome.message : null
+        });
 
         if (outcome.status === "success") {
           savePendingVaultCreation({
@@ -154,28 +242,40 @@ export default function CreateVaultPage() {
             vaultId: outcome.vaultId
           });
 
+          if (typeof outcome.vaultId === "number") {
+            const query = new URLSearchParams({ created: "1", txId });
+            router.push(`/vault/${outcome.vaultId}?${query.toString()}`);
+            return;
+          }
+
           const query = new URLSearchParams({ created: "1", txId });
-          if (typeof outcome.vaultId === "number") query.set("vaultId", String(outcome.vaultId));
           router.push(`/vaults?${query.toString()}`);
           return;
         }
 
         if (outcome.status === "timeout") {
+          console.warn("[VaultCircle][CreateVault] handleSubmit(): outcome polling timed out", { txId });
           router.push(`/vaults?created=1&txId=${encodeURIComponent(txId)}`);
           return;
         }
 
+        console.warn("[VaultCircle][CreateVault] handleSubmit(): create-vault outcome returned failure", outcome);
         clearPendingVaultCreation(txId);
         setPendingTxId(null);
         setPendingMessage("");
         setError(outcome.message);
         setSubmitting(false);
       } catch (statusError) {
+        console.error("[VaultCircle][CreateVault] handleSubmit(): waitForCreateVaultOutcome failed", statusError);
         devWarn("Could not finish monitoring create-vault transaction status:", statusError);
         router.push(`/vaults?created=1&txId=${encodeURIComponent(txId)}`);
       }
     } catch (err) {
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current) {
+        logCreateVault("handleSubmit(): component unmounted during error handling");
+        return;
+      }
+      console.error("[VaultCircle][CreateVault] handleSubmit(): final catch", err);
       setError(
         err instanceof Error && err.message === "Transaction cancelled by wallet"
           ? "The wallet request was cancelled. Click Create Vault again to retry."
@@ -189,9 +289,14 @@ export default function CreateVaultPage() {
 
   async function handleInitializeProtocol() {
     if (!connected || !address) {
+      console.warn("[VaultCircle][CreateVault] handleInitializeProtocol(): wallet not connected, opening wallet picker");
       connect();
       return;
     }
+    logCreateVault("handleInitializeProtocol(): start", {
+      address,
+      selectedWalletName: selectedWalletName ?? null
+    });
     setInitializingProtocol(true);
     setInitTxId(null);
     setInitError("");
@@ -200,6 +305,7 @@ export default function CreateVaultPage() {
         void txInitializeProtocol(CONTRACTS.sbtc, ({ txId }) => resolve(txId), reject).catch(reject);
       });
 
+      logCreateVault("handleInitializeProtocol(): tx submitted", { txId });
       setInitTxId(txId);
 
       // Poll every 5 s until the contract confirms (blocks take ~30–60 s on testnet)
@@ -210,6 +316,7 @@ export default function CreateVaultPage() {
         const status = await checkProtocolStatus();
         if (!isMountedRef.current) return;
         if (status.initialized === true) {
+          logCreateVault("handleInitializeProtocol(): protocol became initialized", status);
           setProtocolStatus(status);
           setInitTxId(null);
           return;
@@ -224,6 +331,7 @@ export default function CreateVaultPage() {
       }
     } catch (err) {
       if (!isMountedRef.current) return;
+      console.error("[VaultCircle][CreateVault] handleInitializeProtocol(): failed", err);
       setInitError(
         err instanceof Error && err.message === "Transaction cancelled by wallet"
           ? "The wallet request was cancelled."
@@ -278,16 +386,16 @@ export default function CreateVaultPage() {
         currentStep={currentStep}
         steps={[
           {
-            title: "Set vault rules",
-            description: "Name the vault, invite members, and choose the approval threshold."
+            title: "Configure vault",
+            description: "Name the treasury, invite members, and define the approval threshold."
           },
           {
-            title: "Sign in wallet",
-            description: "Your wallet asks you to authorize the creation transaction."
+            title: "Review in wallet",
+            description: "Confirm the creation transaction with your connected signer."
           },
           {
-            title: "Awaiting confirmation",
-            description: "Stacks Testnet confirms the vault on-chain and assigns an id."
+            title: "Finalize on-chain",
+            description: "VaultCircle waits for testnet confirmation, indexes the result, and opens your vault."
           }
         ]}
       />
@@ -295,8 +403,8 @@ export default function CreateVaultPage() {
       {walletReady && !connected && (
         <TxStatus
           state="pending"
-          title="Connect a wallet to create the vault"
-          description="Click the button below to connect Leather or Xverse. Once connected, click Create Vault again to submit the transaction."
+          title="Connect a signer to launch the vault"
+          description="Connect Leather or Xverse, then VaultCircle will route the creation request through that wallet and open the vault as soon as confirmation lands."
         />
       )}
 
@@ -508,9 +616,9 @@ export default function CreateVaultPage() {
             {awaitingWallet && (
               <TxStatus
                 state="pending"
-                title="Waiting for your wallet"
-                description="Your wallet extension should now be showing a transaction confirmation. If you don't see a popup, click the wallet icon in your browser toolbar — on Windows it often opens behind the main window."
-                statusLabel="Awaiting Signature"
+                title="Review vault creation in your wallet"
+                description="Approve the transaction in your connected wallet. Once signed, VaultCircle will confirm the transaction on testnet and open the new vault automatically."
+                statusLabel="Signature Requested"
               />
             )}
 
@@ -526,10 +634,10 @@ export default function CreateVaultPage() {
             {pendingTxId && pendingMessage && (
               <TxStatus
                 state="pending"
-                title="Vault creation is being confirmed"
+                title="Vault submitted to Stacks Testnet"
                 description={pendingMessage}
                 txId={pendingTxId}
-                statusLabel="Broadcast on Testnet"
+                statusLabel="Finalizing Vault"
               />
             )}
 

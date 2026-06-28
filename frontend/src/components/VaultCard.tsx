@@ -1,8 +1,19 @@
 import Link from "next/link";
+import VaultMembershipBadge from "@/components/VaultMembershipBadge";
 import type { Vault } from "@/types";
 import { satsTosBTC } from "@/types";
 
-export default function VaultCard({ vault }: { vault: Vault }) {
+interface VaultCardProps {
+  vault: Vault;
+  showMembershipBadge?: boolean;
+  creatorMember?: boolean;
+}
+
+export default function VaultCard({
+  vault,
+  showMembershipBadge = false,
+  creatorMember = false
+}: VaultCardProps) {
   return (
     <Link
       href={`/vault/${vault.vaultId}`}
@@ -17,7 +28,10 @@ export default function VaultCard({ vault }: { vault: Vault }) {
             {vault.thresholdPercent}% approval threshold before assets move.
           </p>
         </div>
-        <span className={vault.status === "ACTIVE" ? "badge-active" : "badge-executed"}>{vault.status}</span>
+        <div className="flex flex-col items-end gap-3">
+          {showMembershipBadge && <VaultMembershipBadge compact creator={creatorMember} />}
+          <span className={vault.status === "ACTIVE" ? "badge-active" : "badge-executed"}>{vault.status}</span>
+        </div>
       </div>
 
       <div className="divider mt-6 pt-6" />

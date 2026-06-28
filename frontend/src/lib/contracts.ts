@@ -10,6 +10,7 @@ export {
   STACKS_API_URL,
   STACKS_EXPLORER_URL,
   ZEST_MODE,
+  getClientSafeNetwork,
   getStacksNetwork,
   splitContractId
 } from "./config";

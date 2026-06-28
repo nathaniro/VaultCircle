@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import ActionPanel from "@/components/ActionPanel";
 import EmptyState from "@/components/EmptyState";
 import InfoCard from "@/components/InfoCard";
@@ -10,6 +10,9 @@ import PageHeader from "@/components/PageHeader";
 import ProposalBadge from "@/components/ProposalBadge";
 import StatCard from "@/components/StatCard";
 import TxStatus from "@/components/TxStatus";
+import VaultMembershipBadge from "@/components/VaultMembershipBadge";
+import { clearPendingVaultCreation } from "@/lib/pending-vault";
+import { useVaultMembership } from "@/lib/use-vault-membership";
 import { useWallet } from "@/lib/wallet";
 import { getProposal, getRequiredApprovals, getVault, getVaultProposals } from "@/lib/stacks";
 import { txSyncZestYield } from "@/lib/transactions";
@@ -19,8 +22,12 @@ import { PROPOSAL_TYPE_LABELS, satsTosBTC } from "@/types";
 
 export default function VaultDashboard() {
   const { id } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const vaultId = normalizeUint(id);
-  const { address } = useWallet();
+  const { address, connected, connect } = useWallet();
+  const createdFlow = searchParams.get("created") === "1";
+  const createdTxId = searchParams.get("txId") || undefined;
+  const { isMember } = useVaultMembership(vaultId, address);
 
   const [vault, setVault] = useState<Vault | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -84,8 +91,25 @@ export default function VaultDashboard() {
     };
   }, [vaultId]);
 
+  useEffect(() => {
+    if (!createdFlow || !createdTxId) return;
+    clearPendingVaultCreation(createdTxId);
+  }, [createdFlow, createdTxId]);
+
   async function handleSync() {
-    if (!address || !vault || vaultId === null) return;
+    if (!vault || vaultId === null) return;
+    if (!connected || !address) {
+      connect();
+      return;
+    }
+    if (!isMember) {
+      setSyncFeedback({
+        state: "error",
+        message: "Only active vault members can submit a Zest sync transaction for this treasury."
+      });
+      return;
+    }
+
     setSyncing(true);
     setSyncFeedback(null);
     try {
@@ -170,17 +194,33 @@ export default function VaultDashboard() {
         backHref="/vaults"
         backLabel="Back to all vaults"
         actions={
-          <>
-            <Link href={`/vault/${vaultId}/deposit`} className="btn-primary">
-              Deposit sBTC
-            </Link>
-            <Link href={`/vault/${vaultId}/create-proposal`} className="btn-secondary">
-              New Proposal
-            </Link>
-          </>
+          !connected ? (
+            <button type="button" onClick={() => connect()} className="btn-primary">
+              Connect Wallet
+            </button>
+          ) : isMember ? (
+            <>
+              <Link href={`/vault/${vaultId}/deposit`} className="btn-primary">
+                Deposit sBTC
+              </Link>
+              <Link href={`/vault/${vaultId}/create-proposal`} className="btn-secondary">
+                New Proposal
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href={`/vault/${vaultId}/proposals`} className="btn-primary">
+                Review Proposals
+              </Link>
+              <Link href={`/vault/${vaultId}/members`} className="btn-secondary">
+                View Members
+              </Link>
+            </>
+          )
         }
         meta={
           <div className="flex flex-wrap gap-3 text-sm text-slate-400">
+            {isMember && <VaultMembershipBadge creator={vault.creator === address} />}
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
               Creator {vault.creator.slice(0, 12)}...
             </span>
@@ -197,6 +237,34 @@ export default function VaultDashboard() {
           state={syncFeedback.state}
           title={syncFeedback.state === "success" ? "Sync submitted" : "Sync not submitted"}
           description={syncFeedback.message}
+        />
+      )}
+
+      {!connected && (
+        <TxStatus
+          state="pending"
+          title="Connect a wallet to take member actions"
+          description="You can inspect treasury state in read-only mode, but deposits, proposal creation, voting, execution, and sync actions unlock only after connecting an active member wallet."
+        />
+      )}
+
+      {connected && !isMember && (
+        <TxStatus
+          state="error"
+          title="Read-only wallet access"
+          description="This wallet is not an active member of the vault. It can review treasury activity, but member-only actions stay locked."
+        />
+      )}
+
+      {createdFlow && (
+        <TxStatus
+          state="success"
+          title="Vault created successfully"
+          description="Your new treasury is live on Stacks Testnet. The next standard flow is to make the first deposit, review member access, and start proposals from this vault workspace."
+          txId={createdTxId}
+          actionHref={`/vault/${vaultId}/deposit`}
+          actionLabel="Make First Deposit"
+          statusLabel="Vault Live"
         />
       )}
 
@@ -233,7 +301,13 @@ export default function VaultDashboard() {
         <InfoCard
           title="Connected wallet role on this page"
           tone="brand"
-          description="Your wallet acts as a vault member signer. It can create proposals, approve or reject them, deposit funds, and execute a passed proposal once the threshold is met."
+          description={
+            isMember
+              ? "Your wallet is recognized as a vault member signer. It can deposit funds, create proposals, vote on open decisions, and execute passed proposals once the threshold is met."
+              : connected
+                ? "This wallet is currently in read-only mode for the vault. Connect with an active member address to unlock deposits, proposal creation, voting, execution, and sync actions."
+                : "Connect a member wallet to unlock deposits, proposal creation, voting, execution, and treasury sync actions from this workspace."
+          }
         />
       </div>
 
@@ -308,9 +382,19 @@ export default function VaultDashboard() {
           title="Refresh Zest position values"
           description="If yield has accrued since the last update, submit a sync transaction so the treasury value shown in the dashboard reflects the latest on-chain position."
           actions={
-            <button onClick={handleSync} disabled={syncing} className="btn-secondary">
-              {syncing ? "Syncing position..." : "Sync Yield"}
-            </button>
+            !connected ? (
+              <button type="button" onClick={() => connect()} className="btn-secondary">
+                Connect to Sync
+              </button>
+            ) : isMember ? (
+              <button onClick={handleSync} disabled={syncing} className="btn-secondary">
+                {syncing ? "Syncing position..." : "Sync Yield"}
+              </button>
+            ) : (
+              <button type="button" disabled className="btn-secondary opacity-60">
+                Members Only
+              </button>
+            )
           }
         />
       )}

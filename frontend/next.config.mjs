@@ -56,7 +56,15 @@ const publicEnv = {
 const nextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: repoRoot,
-  env: publicEnv
+  env: publicEnv,
+  async rewrites() {
+    return [
+      {
+        source: "/api/hiro/:path*",
+        destination: "https://api.testnet.hiro.so/:path*"
+      }
+    ];
+  }
 };
 
 export default nextConfig;

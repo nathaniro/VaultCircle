@@ -144,6 +144,13 @@ export function getStacksNetwork() {
   return new StacksTestnet({ url: STACKS_API_URL });
 }
 
+// In the browser, route reads through the Next.js proxy (/api/hiro/*) to avoid CORS on
+// Hiro's /v2/contracts/call-read/ endpoint. Server-side calls use the direct URL.
+export function getClientSafeNetwork() {
+  const url = typeof window !== "undefined" ? "/api/hiro" : STACKS_API_URL;
+  return new StacksTestnet({ url });
+}
+
 export function splitContractId(contractId: string) {
   return parseContractId(contractId);
 }
