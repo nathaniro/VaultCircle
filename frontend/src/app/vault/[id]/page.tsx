@@ -184,6 +184,7 @@ export default function VaultDashboard() {
   const yieldEarned = vault.yieldEarned || 0;
   const zestPosition = vault.zestPositionValue || 0;
   const totalValue = vault.totalVaultValue || vault.liquidBalance;
+  const vaultIsActive = vault.status === "ACTIVE";
 
   return (
     <div className="page-wrap space-y-8">
@@ -198,7 +199,7 @@ export default function VaultDashboard() {
             <button type="button" onClick={() => connect()} className="btn-primary">
               Connect Wallet
             </button>
-          ) : isMember ? (
+          ) : isMember && vaultIsActive ? (
             <>
               <Link href={`/vault/${vaultId}/deposit`} className="btn-primary">
                 Deposit sBTC
@@ -256,6 +257,14 @@ export default function VaultDashboard() {
         />
       )}
 
+      {vault.status !== "ACTIVE" && (
+        <TxStatus
+          state="error"
+          title="Vault archived"
+          description="This vault is closed. Deposits, proposal creation, voting, execution, and yield sync are now deactivated, while the page remains available as an archive."
+        />
+      )}
+
       {createdFlow && (
         <TxStatus
           state="success"
@@ -302,7 +311,9 @@ export default function VaultDashboard() {
           title="Connected wallet role on this page"
           tone="brand"
           description={
-            isMember
+            !vaultIsActive
+              ? "This vault is in archive mode. Treasury actions are deactivated, and the workspace now serves as a read-only record of balances, members, and proposal history."
+              : isMember
               ? "Your wallet is recognized as a vault member signer. It can deposit funds, create proposals, vote on open decisions, and execute passed proposals once the threshold is met."
               : connected
                 ? "This wallet is currently in read-only mode for the vault. Connect with an active member address to unlock deposits, proposal creation, voting, execution, and sync actions."
@@ -326,8 +337,8 @@ export default function VaultDashboard() {
           <EmptyState
             title="No proposals have been created yet"
             description="Once members want to withdraw, add participants, change the threshold, or move funds into Zest, they will create a proposal here for the group to review and vote on."
-            actionHref={`/vault/${vaultId}/create-proposal`}
-            actionLabel="Create the First Proposal"
+            actionHref={vaultIsActive ? `/vault/${vaultId}/create-proposal` : `/vault/${vaultId}/members`}
+            actionLabel={vaultIsActive ? "Create the First Proposal" : "Review Vault Members"}
           />
         ) : (
           <div className="space-y-4">
@@ -377,7 +388,7 @@ export default function VaultDashboard() {
         )}
       </section>
 
-      {vault.yieldEnabled && zestPosition > 0 && (
+      {vault.yieldEnabled && zestPosition > 0 && vaultIsActive && (
         <ActionPanel
           title="Refresh Zest position values"
           description="If yield has accrued since the last update, submit a sync transaction so the treasury value shown in the dashboard reflects the latest on-chain position."

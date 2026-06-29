@@ -126,6 +126,14 @@ function ProposalsPageContent() {
       });
       return;
     }
+    if (vault?.status !== "ACTIVE") {
+      setTxFeedback({
+        state: "error",
+        title: "Vote not submitted",
+        description: "This vault has been closed, so proposal voting is now deactivated and the page is read-only."
+      });
+      return;
+    }
 
     setPending(proposalId);
     setTxFeedback(null);
@@ -187,6 +195,14 @@ function ProposalsPageContent() {
         state: "error",
         title: "Execution not submitted",
         description: "Only active vault members can execute a passed proposal for this treasury."
+      });
+      return;
+    }
+    if (vault?.status !== "ACTIVE") {
+      setTxFeedback({
+        state: "error",
+        title: "Execution not submitted",
+        description: "This vault has been closed, so proposal execution is now deactivated and the page is read-only."
       });
       return;
     }
@@ -298,7 +314,7 @@ function ProposalsPageContent() {
         </span>
       </div>
 
-      {proposal.status === "ACTIVE" && address && isMember && !voted[proposal.proposalId] && (
+      {proposal.status === "ACTIVE" && vault?.status === "ACTIVE" && address && isMember && !voted[proposal.proposalId] && (
         <div className="flex flex-col gap-3 md:flex-row">
           <button
             onClick={() => handleVote(proposal.proposalId, true)}
@@ -339,7 +355,7 @@ function ProposalsPageContent() {
         />
       )}
 
-      {proposal.status === "PASSED" && !proposal.executed && isMember && (
+      {proposal.status === "PASSED" && !proposal.executed && vault?.status === "ACTIVE" && isMember && (
         <button
           onClick={() => handleExecute(proposal.proposalId)}
           disabled={pending === proposal.proposalId}
@@ -392,13 +408,13 @@ function ProposalsPageContent() {
             <button type="button" onClick={() => connect()} className="btn-primary">
               Connect to Propose
             </button>
-          ) : isMember ? (
+          ) : isMember && vault.status === "ACTIVE" ? (
             <Link href={`/vault/${vaultId}/create-proposal`} className="btn-primary">
               Create Proposal
             </Link>
           ) : (
             <button type="button" disabled className="btn-primary opacity-60">
-              Members Only
+              {vault.status === "ACTIVE" ? "Members Only" : "Vault Archived"}
             </button>
           )
         }
@@ -431,6 +447,14 @@ function ProposalsPageContent() {
         />
       )}
 
+      {vault.status !== "ACTIVE" && (
+        <TxStatus
+          state="error"
+          title="Vault archived"
+          description="This vault is closed. Proposal creation, voting, and execution are deactivated, while governance history remains visible for auditability."
+        />
+      )}
+
       {searchParams.get("created") === "1" && (
         <TxStatus
           state="success"
@@ -452,8 +476,8 @@ function ProposalsPageContent() {
         <EmptyState
           title="No proposals yet"
           description="When members want to withdraw, distribute funds, add a new participant, or manage Zest allocation, they create a proposal here for group review."
-          actionHref={connected && isMember ? `/vault/${vaultId}/create-proposal` : `/vault/${vaultId}/members`}
-          actionLabel={connected && isMember ? "Create the First Proposal" : "Review Vault Members"}
+          actionHref={connected && isMember && vault.status === "ACTIVE" ? `/vault/${vaultId}/create-proposal` : `/vault/${vaultId}/members`}
+          actionLabel={connected && isMember && vault.status === "ACTIVE" ? "Create the First Proposal" : "Review Vault Members"}
         />
       )}
 

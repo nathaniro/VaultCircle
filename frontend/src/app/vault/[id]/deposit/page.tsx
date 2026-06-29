@@ -87,6 +87,7 @@ export default function DepositPage() {
       ? ((member.contributed / vault.totalContributed) * 100).toFixed(2)
       : "0.00";
   const isActiveMember = Boolean(member?.active);
+  const vaultIsActive = vault?.status === "ACTIVE";
 
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
@@ -99,6 +100,11 @@ export default function DepositPage() {
 
     if (!connected || !address) {
       connect();
+      return;
+    }
+
+    if (!vaultIsActive) {
+      setFormError("This vault has been closed, so deposits are permanently disabled and the page is now read-only.");
       return;
     }
 
@@ -165,8 +171,9 @@ export default function DepositPage() {
         meta={
           <div className="flex flex-wrap gap-3 text-sm text-slate-400">
             {isActiveMember && <VaultMembershipBadge creator={vault.creator === address} />}
+            <span className={vault.status === "ACTIVE" ? "badge-active" : "badge-executed"}>{vault.status}</span>
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
-              Connected role: {isActiveMember ? "depositor and member" : connected ? "read-only viewer" : "connect wallet to deposit"}
+              Connected role: {!vaultIsActive ? "archived vault" : isActiveMember ? "depositor and member" : connected ? "read-only viewer" : "connect wallet to deposit"}
             </span>
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
               Next step: sign a deposit transaction in your wallet
@@ -240,6 +247,14 @@ export default function DepositPage() {
             />
           )}
 
+          {!vaultIsActive && (
+            <TxStatus
+              state="error"
+              title="Vault archived"
+              description="This vault has already been closed. Deposits are permanently disabled because the treasury is now in archive mode."
+            />
+          )}
+
           {formError && <TxStatus state="error" title="Deposit not submitted" description={formError} />}
 
           {txId ? (
@@ -252,8 +267,14 @@ export default function DepositPage() {
               actionLabel="Back to Vault Overview"
             />
           ) : (
-            <button type="submit" className="btn-primary w-full" disabled={submitting || (connected && !isActiveMember)}>
-              {submitting ? "Awaiting wallet confirmation..." : connected && !isActiveMember ? "Only Members Can Deposit" : "Deposit sBTC"}
+            <button type="submit" className="btn-primary w-full" disabled={submitting || !vaultIsActive || (connected && !isActiveMember)}>
+              {submitting
+                ? "Awaiting wallet confirmation..."
+                : !vaultIsActive
+                  ? "Vault Archived"
+                  : connected && !isActiveMember
+                    ? "Only Members Can Deposit"
+                    : "Deposit sBTC"}
             </button>
           )}
         </form>

@@ -103,6 +103,7 @@ export default function MembersPage() {
   const totalContributed = vault.totalContributed;
   const required = calcRequiredApprovals(vault.memberCount, vault.thresholdPercent);
   const currentMember = members.find((member) => member.address === address && member.active);
+  const vaultIsActive = vault.status === "ACTIVE";
 
   return (
     <div className="page-wrap space-y-8">
@@ -113,14 +114,21 @@ export default function MembersPage() {
         backHref={`/vault/${vaultId}`}
         backLabel="Back to vault overview"
         actions={
-          <Link href={`/vault/${vaultId}/create-proposal`} className="btn-secondary">
-            Propose Member Change
-          </Link>
+          vaultIsActive ? (
+            <Link href={`/vault/${vaultId}/create-proposal`} className="btn-secondary">
+              Propose Member Change
+            </Link>
+          ) : (
+            <button type="button" disabled className="btn-secondary opacity-60">
+              Vault Archived
+            </button>
+          )
         }
         meta={
           currentMember ? (
             <div className="flex flex-wrap gap-3 text-sm text-slate-400">
               <VaultMembershipBadge creator={vault.creator === address} />
+              <span className={vault.status === "ACTIVE" ? "badge-active" : "badge-executed"}>{vault.status}</span>
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
                 {required} approvals required across {vault.memberCount} members
               </span>
@@ -173,7 +181,11 @@ export default function MembersPage() {
           />
           <InfoCard
             title="Changing membership"
-            description="Members are added or removed through proposals. That means the group reviews the change before the contract updates the participant set."
+            description={
+              vaultIsActive
+                ? "Members are added or removed through proposals. That means the group reviews the change before the contract updates the participant set."
+                : "Membership history remains visible after close-out, but the vault is archived so no new membership changes can be proposed."
+            }
           />
         </div>
       </div>

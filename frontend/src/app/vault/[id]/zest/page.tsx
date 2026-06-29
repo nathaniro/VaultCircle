@@ -94,6 +94,10 @@ export default function ZestPage() {
       setSyncError("Only active vault members can submit a Zest position sync for this treasury.");
       return;
     }
+    if (vault?.status !== "ACTIVE") {
+      setSyncError("This vault has been closed, so Zest sync activity is now deactivated and the page is read-only.");
+      return;
+    }
 
     setSyncing(true);
     setSyncError("");
@@ -150,6 +154,7 @@ export default function ZestPage() {
   const zestCap = Math.floor((totalValue * PROTOCOL.maxZestAllocationPct) / 100);
   const principalDeposited = vault.zestAllocated || 0;
   const liveZestEnabled = ZEST_MODE === "live";
+  const vaultIsActive = vault.status === "ACTIVE";
 
   return (
     <div className="page-wrap space-y-8">
@@ -162,6 +167,7 @@ export default function ZestPage() {
         meta={
           <div className="flex flex-wrap gap-3 text-sm text-slate-400">
             {isMember && <VaultMembershipBadge creator={vault.creator === address} />}
+            <span className={vault.status === "ACTIVE" ? "badge-active" : "badge-executed"}>{vault.status}</span>
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
               Yield path {vault.yieldEnabled ? "enabled" : "disabled"} for this treasury
             </span>
@@ -193,6 +199,14 @@ export default function ZestPage() {
           state="error"
           title="Member action locked"
           description="This wallet can review treasury yield posture, but only active vault members can create yield proposals or sync the Zest position."
+        />
+      )}
+
+      {!vaultIsActive && (
+        <TxStatus
+          state="error"
+          title="Vault archived"
+          description="This vault is closed. Yield proposals and sync actions are deactivated, while the final Zest posture remains visible for review."
         />
       )}
 
@@ -235,16 +249,16 @@ export default function ZestPage() {
                 <button type="button" onClick={() => connect()} className="btn-primary">
                   Connect to Propose
                 </button>
-              ) : isMember ? (
+              ) : isMember && vaultIsActive ? (
                 <Link href={`/vault/${vaultId}/create-proposal`} className="btn-primary">
                   Create Yield Proposal
                 </Link>
               ) : (
                 <button type="button" disabled className="btn-primary opacity-60">
-                  Members Only
+                  {vaultIsActive ? "Members Only" : "Vault Archived"}
                 </button>
               )}
-              {zestPosition > 0 && isMember && (
+              {zestPosition > 0 && isMember && vaultIsActive && (
                 <button onClick={handleSync} disabled={syncing} className="btn-secondary">
                   {syncing ? "Syncing..." : "Sync Position"}
                 </button>

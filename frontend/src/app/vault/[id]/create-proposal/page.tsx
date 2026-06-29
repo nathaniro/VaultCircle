@@ -9,7 +9,7 @@ import StepIndicator from "@/components/StepIndicator";
 import TxStatus from "@/components/TxStatus";
 import VaultMembershipBadge from "@/components/VaultMembershipBadge";
 import { DEFAULT_PROPOSAL_DURATION, PROTOCOL } from "@/lib/contracts";
-import { getVault } from "@/lib/stacks";
+import { getMember, getVault } from "@/lib/stacks";
 import { txCreateProposal } from "@/lib/transactions";
 import { useVaultMembership } from "@/lib/use-vault-membership";
 import { formatAppError, isValidStacksAddress, normalizeUint } from "@/lib/validation";
@@ -39,13 +39,86 @@ const LABELS: Record<ProposalType, string> = {
   DEPOSIT_TO_ZEST: "Allocate part of the treasury into Zest",
   WITHDRAW_FROM_ZEST: "Bring Zest capital back into the vault",
   CHANGE_BENEFICIARY: "Change the default beneficiary address",
-  CLOSE_VAULT: "Close the vault and distribute the remaining treasury"
+  CLOSE_VAULT: "Close an empty vault and archive all treasury activity"
 };
+
+function normalizeProposalReasonInput(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\u2026/g, "...")
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getProposalGuardrail(
+  proposalType: ProposalType,
+  vault: Vault,
+  amountValue: number,
+  hasTypedAmount: boolean
+) {
+  const totalVaultValue = vault.totalVaultValue || vault.liquidBalance;
+  const zestPosition = vault.zestPositionValue || 0;
+
+  if (vault.status !== "ACTIVE") {
+    return "This vault has already been closed, so proposal creation is locked and the page is now read-only.";
+  }
+
+  if (proposalType === "CLOSE_VAULT" && totalVaultValue > 0) {
+    return `Close vault is locked until the treasury reaches 0 sBTC. Withdraw or distribute the remaining ${satsTosBTC(totalVaultValue)} sBTC first.`;
+  }
+
+  if (!hasTypedAmount || Number.isNaN(amountValue) || amountValue <= 0) {
+    return null;
+  }
+
+  if ((proposalType === "WITHDRAW_SINGLE" || proposalType === "WITHDRAW_BY_SHARE") && amountValue > totalVaultValue) {
+    return `This vault currently tracks ${satsTosBTC(totalVaultValue)} sBTC, so the requested withdrawal exceeds the available treasury value.`;
+  }
+
+  if (proposalType === "DEPOSIT_TO_ZEST") {
+    if (!vault.yieldEnabled) {
+      return "Yield is currently disabled for this vault. Enable the yield path before proposing a Zest allocation.";
+    }
+
+    if (amountValue > vault.liquidBalance) {
+      return `Only ${satsTosBTC(vault.liquidBalance)} sBTC is liquid in the vault right now, so the requested Zest deposit is too large.`;
+    }
+
+    const newLiquidBalance = vault.liquidBalance - amountValue;
+    const newZestPosition = zestPosition + amountValue;
+    const maxZestAllowed = Math.floor((totalVaultValue * PROTOCOL.maxZestAllocationPct) / 100);
+    const minLiquidReserve = Math.ceil((totalVaultValue * PROTOCOL.minLiquidReservePct) / 100);
+
+    if (newZestPosition > maxZestAllowed) {
+      return `This vault can allocate at most ${satsTosBTC(maxZestAllowed)} sBTC to Zest under the current ${PROTOCOL.maxZestAllocationPct}% cap.`;
+    }
+
+    if (newLiquidBalance < minLiquidReserve) {
+      return `This allocation would break the ${PROTOCOL.minLiquidReservePct}% liquid reserve rule. Keep at least ${satsTosBTC(minLiquidReserve)} sBTC liquid.`;
+    }
+  }
+
+  if (proposalType === "WITHDRAW_FROM_ZEST") {
+    if (zestPosition <= 0) {
+      return "There is no active Zest position in this vault yet, so there is nothing available to withdraw.";
+    }
+
+    if (amountValue > zestPosition) {
+      return `The vault currently has ${satsTosBTC(zestPosition)} sBTC in Zest, so the requested withdrawal exceeds the live position.`;
+    }
+  }
+
+  return null;
+}
 
 export default function CreateProposalPage() {
   const { id } = useParams<{ id: string }>();
   const vaultId = normalizeUint(id);
-  const { connected, address, connect, selectedWalletName } = useWallet();
+  const { connected, address, connect, selectedWalletId, selectedWalletName } = useWallet();
   const router = useRouter();
   const { isMember } = useVaultMembership(vaultId, address);
 
@@ -75,7 +148,7 @@ export default function CreateProposalPage() {
       }
 
       try {
-        const currentVault = await getVault(vaultId, { skipZest: true });
+        const currentVault = await getVault(vaultId);
         if (cancelled) return;
         setVault(currentVault);
         if (!currentVault) {
@@ -108,6 +181,16 @@ export default function CreateProposalPage() {
 
   const needsRecipient = ["WITHDRAW_SINGLE", "ADD_MEMBER", "REMOVE_MEMBER", "CHANGE_BENEFICIARY"].includes(proposalType);
   const isThresholdProposal = proposalType === "CHANGE_THRESHOLD";
+  const totalVaultValue = vault ? vault.totalVaultValue || vault.liquidBalance : 0;
+  const hasTypedAmount = amount.trim().length > 0;
+  const parsedAmountValue = needsAmount ? (isThresholdProposal ? Number(amount) : sBTCToSats(amount)) : 0;
+  const proposalGuardrail = vault ? getProposalGuardrail(proposalType, vault, parsedAmountValue, hasTypedAmount) : null;
+  const submitBlocked =
+    submitting ||
+    (connected && !isMember) ||
+    !vault ||
+    vault.status !== "ACTIVE" ||
+    proposalGuardrail !== null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -123,8 +206,19 @@ export default function CreateProposalPage() {
       return;
     }
 
+    if (!selectedWalletId) {
+      setFormError("Reconnect and choose the wallet that should sign this proposal before submitting it.");
+      connect();
+      return;
+    }
+
     if (!isMember) {
       setFormError("This connected wallet is not an active vault member, so it cannot create proposals for this treasury.");
+      return;
+    }
+
+    if (!vault || vault.status !== "ACTIVE") {
+      setFormError("This vault has already been closed, so new proposals cannot be created from this page.");
       return;
     }
 
@@ -142,6 +236,11 @@ export default function CreateProposalPage() {
       return;
     }
 
+    if (proposalGuardrail) {
+      setFormError(proposalGuardrail);
+      return;
+    }
+
     if (needsRecipient && !recipient.trim()) {
       setFormError("Enter the member or recipient address this proposal should target.");
       return;
@@ -152,9 +251,32 @@ export default function CreateProposalPage() {
       return;
     }
 
-    if (!reason.trim()) {
+    const normalizedReason = normalizeProposalReasonInput(reason);
+    if (!normalizedReason) {
       setFormError("Add a reason so every member understands why this proposal should be approved.");
       return;
+    }
+
+    if (proposalType === "ADD_MEMBER" || proposalType === "REMOVE_MEMBER") {
+      const recipientAddress = recipient.trim();
+      const recipientMember = await getMember(vaultId, recipientAddress);
+
+      if (proposalType === "ADD_MEMBER" && recipientMember) {
+        setFormError("This address is already recorded in the vault membership set, so it cannot be added again through a new proposal.");
+        return;
+      }
+
+      if (proposalType === "REMOVE_MEMBER") {
+        if (recipientAddress === address) {
+          setFormError("Self-removal is blocked by the protocol. Ask another active member to propose a membership change if needed.");
+          return;
+        }
+
+        if (!recipientMember?.active) {
+          setFormError("This address is not an active member of the vault, so it cannot be removed through this proposal.");
+          return;
+        }
+      }
     }
 
     setSubmitting(true);
@@ -164,7 +286,7 @@ export default function CreateProposalPage() {
         PROPOSAL_TYPE_IDS[proposalType],
         amountValue,
         needsRecipient && recipient.trim() ? recipient.trim() : null,
-        reason.trim(),
+        normalizedReason,
         duration,
         () => {
           router.push(`/vault/${vaultId}/proposals?created=1`);
@@ -207,6 +329,7 @@ export default function CreateProposalPage() {
         ? `${amount}% threshold`
         : `${amount} sBTC (${Number.isNaN(sBTCToSats(amount)) ? 0 : sBTCToSats(amount).toLocaleString()} sats)`
       : "No amount entered yet";
+  const normalizedReasonPreview = normalizeProposalReasonInput(reason);
 
   return (
     <div className="page-wrap space-y-8">
@@ -222,6 +345,7 @@ export default function CreateProposalPage() {
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
               Current vault threshold {vault.thresholdPercent}%
             </span>
+            <span className={vault.status === "ACTIVE" ? "badge-active" : "badge-executed"}>{vault.status}</span>
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
               Wallet role: {isMember ? "proposer" : connected ? "read-only viewer" : "connect wallet to propose"}
             </span>
@@ -242,7 +366,7 @@ export default function CreateProposalPage() {
           },
           {
             title: "Sign the proposal transaction",
-            description: "Your wallet submits the proposal on-chain so other members can approve or reject it."
+            description: "Your wallet submits the proposal on-chain only after the payload passes client-side protocol checks."
           }
         ]}
       />
@@ -344,7 +468,7 @@ export default function CreateProposalPage() {
 
           {proposalType === "CLOSE_VAULT" && (
             <div className="notice-danger">
-              <strong>Warning:</strong> Closing a vault is irreversible. The contract will settle the vault, distribute funds by contribution share, and prevent future treasury operations.
+              <strong>Warning:</strong> Closing a vault is irreversible. VaultCircle now allows close-out only when the treasury is fully empty, after which deposits, proposal creation, voting, and execution are all deactivated.
             </div>
           )}
 
@@ -370,13 +494,37 @@ export default function CreateProposalPage() {
             />
           )}
 
+          {vault.status !== "ACTIVE" && (
+            <TxStatus
+              state="error"
+              title="Vault archived"
+              description="This vault has already been closed. Proposal creation is disabled because the treasury is now in archive mode."
+            />
+          )}
+
+          {proposalGuardrail && (
+            <TxStatus
+              state="error"
+              title={proposalType === "CLOSE_VAULT" ? "Vault must be empty before close-out" : "Proposal guardrail triggered"}
+              description={proposalGuardrail}
+            />
+          )}
+
           {formError && <TxStatus state="error" title="Proposal not submitted" description={formError} />}
 
-          <button type="submit" className="btn-primary w-full" disabled={submitting || (connected && !isMember)}>
-            {submitting ? "Awaiting wallet confirmation..." : connected && !isMember ? "Only Members Can Propose" : "Create Proposal"}
+          <button type="submit" className="btn-primary w-full" disabled={submitBlocked}>
+            {submitting
+              ? "Awaiting wallet confirmation..."
+              : vault.status !== "ACTIVE"
+                ? "Vault Archived"
+                : connected && !isMember
+                  ? "Only Members Can Propose"
+                  : proposalType === "CLOSE_VAULT" && totalVaultValue > 0
+                    ? "Empty Treasury Before Closing"
+                    : "Create Proposal"}
           </button>
           <p className="text-center text-sm text-slate-500">
-            When you submit, {selectedWalletName ?? "your wallet"} will sign the proposal creation request exactly as shown above.
+            When you submit, {selectedWalletName ?? "your wallet"} will sign the proposal creation request only after VaultCircle confirms the action is valid for the vault&apos;s current treasury state.
           </p>
         </form>
 
@@ -390,6 +538,7 @@ export default function CreateProposalPage() {
                 <p className="mt-2">Amount or threshold: <strong className="text-white">{amountPreview}</strong></p>
                 <p className="mt-2">Target address: <strong className="text-white">{recipient || "No address needed yet"}</strong></p>
                 <p className="mt-2">Voting window: <strong className="text-white">{duration} blocks</strong></p>
+                <p className="mt-2">Reason payload: <strong className="text-white">{normalizedReasonPreview || "Add a reason to preview the final on-chain payload"}</strong></p>
               </>
             }
           />
@@ -398,6 +547,18 @@ export default function CreateProposalPage() {
             title="What members see next"
             description="After submission, the proposal appears in the vault's proposal list. Members can review the reason, approve or reject it, and execute it after the threshold is reached."
           />
+
+          {proposalType === "CLOSE_VAULT" && (
+            <InfoCard
+              title="Close-out policy"
+              tone="warning"
+              description={
+                totalVaultValue > 0
+                  ? `This vault still tracks ${satsTosBTC(totalVaultValue)} sBTC, so close-out is blocked until the treasury is fully emptied.`
+                  : "This vault is empty, so a close-out proposal can safely archive it and deactivate future treasury activity."
+              }
+            />
+          )}
         </div>
       </div>
     </div>
