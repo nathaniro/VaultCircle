@@ -1,7 +1,7 @@
-;; vault-circle.clar
+;; vault-circle-v2.clar
 ;; Main VaultCircle contract with configurable SIP-010 sBTC custody
 
-(use-trait ft-trait .sip-010-ft-trait.sip-010-ft-trait)
+(use-trait ft-trait .sip-010-ft-trait-v2.sip-010-ft-trait)
 
 (define-constant CONTRACT-OWNER tx-sender)
 
@@ -96,7 +96,7 @@
   principal)
 
 (define-private (is-admin)
-  (is-eq tx-sender (contract-call? .governance-params get-protocol-admin)))
+  (is-eq tx-sender (contract-call? .governance-params-v2 get-protocol-admin)))
 
 (define-private (is-protocol-initialized)
   (var-get protocol-initialized))
@@ -131,7 +131,7 @@
 
 (define-private (get-total-vault-value-internal (vault-id uint))
   (+ (get liquid-balance (get-vault-data vault-id))
-     (contract-call? .zest-adapter get-zest-position-value vault-id)))
+     (contract-call? .zest-adapter-v2 get-zest-position-value vault-id)))
 
 (define-private (assert-token-matches-configured (token <ft-trait>))
   (match (var-get configured-sbtc-contract)
@@ -161,8 +161,8 @@
   (let ((vault-data (get-vault-data vault-id)))
     (if (< (get liquid-balance vault-data) amount)
       (let ((needed (- amount (get liquid-balance vault-data))))
-        (asserts! (not (contract-call? .governance-params is-zest-withdrawals-paused)) ERR-ZEST-WITHDRAWALS-PAUSED)
-        (try! (contract-call? .zest-adapter withdraw-from-zest token vault-id needed))
+        (asserts! (not (contract-call? .governance-params-v2 is-zest-withdrawals-paused)) ERR-ZEST-WITHDRAWALS-PAUSED)
+        (try! (contract-call? .zest-adapter-v2 withdraw-from-zest token vault-id needed))
         (record-zest-withdrawal-to-liquid vault-id needed)
         (ok true))
       (ok true))))
@@ -202,8 +202,8 @@
             (if (is-eq proposal-type PROPOSAL-CHANGE-THRESHOLD)
               (if (and
                     (is-none recipient)
-                    (>= amount (contract-call? .governance-params get-min-threshold))
-                    (<= amount (contract-call? .governance-params get-max-threshold)))
+                    (>= amount (contract-call? .governance-params-v2 get-min-threshold))
+                    (<= amount (contract-call? .governance-params-v2 get-max-threshold)))
                 (ok true)
                 ERR-INVALID-PROPOSAL-PARAMS)
               (if (is-eq proposal-type PROPOSAL-ENABLE-YIELD)
@@ -376,7 +376,7 @@
         (map-set members {vault-id: vault-id, member: member}
           {contributed: u0, active: true, joined-at: stacks-block-height})
         (map-set vault-member-at {vault-id: vault-id, idx: count} member)
-        (unwrap-panic (contract-call? .vault-registry add-member-to-vault vault-id member))
+        (unwrap-panic (contract-call? .vault-registry-v2 add-member-to-vault vault-id member))
         (print {event: "member-added", vault-id: vault-id, member: member, block: stacks-block-height})
         {vault-id: vault-id, count: (+ count u1)}))))
 
@@ -397,12 +397,12 @@
     (beneficiary (optional principal)))
   (begin
     (asserts! (is-protocol-initialized) ERR-NOT-INITIALIZED)
-    (asserts! (not (contract-call? .governance-params is-deposits-paused)) ERR-DEPOSITS-PAUSED)
+    (asserts! (not (contract-call? .governance-params-v2 is-deposits-paused)) ERR-DEPOSITS-PAUSED)
     (asserts! (> (len name) u0) ERR-INVALID-NAME)
     (asserts!
       (and
-        (>= threshold-percent (contract-call? .governance-params get-min-threshold))
-        (<= threshold-percent (contract-call? .governance-params get-max-threshold)))
+        (>= threshold-percent (contract-call? .governance-params-v2 get-min-threshold))
+        (<= threshold-percent (contract-call? .governance-params-v2 get-max-threshold)))
       ERR-INVALID-THRESHOLD)
     (asserts! (<= (len initial-members) MAX-INITIAL-MEMBERS) ERR-TOO-MANY-INITIAL-MEMBERS)
     (match (var-get configured-sbtc-contract)
@@ -425,8 +425,8 @@
           (map-set members {vault-id: vault-id, member: tx-sender}
             {contributed: u0, active: true, joined-at: stacks-block-height})
           (map-set vault-member-at {vault-id: vault-id, idx: u0} tx-sender)
-          (try! (contract-call? .vault-registry register-vault vault-id tx-sender name))
-          (try! (contract-call? .vault-registry add-member-to-vault vault-id tx-sender))
+          (try! (contract-call? .vault-registry-v2 register-vault vault-id tx-sender name))
+          (try! (contract-call? .vault-registry-v2 add-member-to-vault vault-id tx-sender))
           (let ((final-state (fold add-initial-member initial-members {vault-id: vault-id, count: u1})))
             (map-set vaults vault-id
               (merge (get-vault-data vault-id) {
@@ -455,7 +455,7 @@
     (asserts! (vault-is-active vault-id) ERR-VAULT-CLOSED)
     (asserts! (is-active-member-internal vault-id tx-sender) ERR-NOT-MEMBER)
     (asserts! (> amount u0) ERR-ZERO-AMOUNT)
-    (asserts! (not (contract-call? .governance-params is-deposits-paused)) ERR-DEPOSITS-PAUSED)
+    (asserts! (not (contract-call? .governance-params-v2 is-deposits-paused)) ERR-DEPOSITS-PAUSED)
     (try! (assert-token-matches-configured token))
     (try! (assert-token-matches-vault token vault-id))
     (let (
@@ -492,15 +492,15 @@
     (asserts! (vault-exists vault-id) ERR-VAULT-NOT-FOUND)
     (asserts! (vault-is-active vault-id) ERR-VAULT-CLOSED)
     (asserts! (is-active-member-internal vault-id tx-sender) ERR-NOT-MEMBER)
-    (asserts! (not (contract-call? .governance-params is-proposals-paused)) ERR-PROPOSALS-PAUSED)
+    (asserts! (not (contract-call? .governance-params-v2 is-proposals-paused)) ERR-PROPOSALS-PAUSED)
     (asserts!
       (and
-        (>= duration-blocks (contract-call? .governance-params get-min-proposal-expiry-blocks))
-        (<= duration-blocks (contract-call? .governance-params get-max-proposal-expiry-blocks)))
+        (>= duration-blocks (contract-call? .governance-params-v2 get-min-proposal-expiry-blocks))
+        (<= duration-blocks (contract-call? .governance-params-v2 get-max-proposal-expiry-blocks)))
       ERR-PROPOSALS-PAUSED)
     (try! (validate-proposal-params vault-id proposal-type amount recipient))
     (let ((expires-at (+ stacks-block-height duration-blocks)))
-      (contract-call? .proposal-manager create-proposal
+      (contract-call? .proposal-manager-v2 create-proposal
         vault-id
         tx-sender
         proposal-type
@@ -517,10 +517,10 @@
     (asserts! (is-active-member-internal vault-id tx-sender) ERR-NOT-MEMBER)
     (let (
       (vault-data (get-vault-data vault-id))
-      (proposal (unwrap! (contract-call? .proposal-manager get-proposal proposal-id) ERR-PROPOSAL-NOT-FOUND))
+      (proposal (unwrap! (contract-call? .proposal-manager-v2 get-proposal proposal-id) ERR-PROPOSAL-NOT-FOUND))
     )
       (asserts! (is-eq (get vault-id proposal) vault-id) ERR-PROPOSAL-VAULT-MISMATCH)
-      (contract-call? .proposal-manager cast-vote
+      (contract-call? .proposal-manager-v2 cast-vote
         proposal-id
         tx-sender
         approve
@@ -533,11 +533,11 @@
     (asserts! (vault-exists vault-id) ERR-VAULT-NOT-FOUND)
     (asserts! (vault-is-active vault-id) ERR-VAULT-CLOSED)
     (asserts! (is-active-member-internal vault-id tx-sender) ERR-NOT-MEMBER)
-    (asserts! (not (contract-call? .governance-params is-executions-paused)) ERR-EXECUTIONS-PAUSED)
-    (asserts! (contract-call? .proposal-manager can-execute proposal-id) ERR-PROPOSAL-NOT-READY)
+    (asserts! (not (contract-call? .governance-params-v2 is-executions-paused)) ERR-EXECUTIONS-PAUSED)
+    (asserts! (contract-call? .proposal-manager-v2 can-execute proposal-id) ERR-PROPOSAL-NOT-READY)
     (try! (assert-token-matches-configured token))
     (try! (assert-token-matches-vault token vault-id))
-    (let ((proposal (unwrap! (contract-call? .proposal-manager get-proposal proposal-id) ERR-PROPOSAL-NOT-FOUND)))
+    (let ((proposal (unwrap! (contract-call? .proposal-manager-v2 get-proposal proposal-id) ERR-PROPOSAL-NOT-FOUND)))
       (asserts! (is-eq (get vault-id proposal) vault-id) ERR-PROPOSAL-VAULT-MISMATCH)
       (let ((proposal-type (get proposal-type proposal)))
         (if (is-eq proposal-type PROPOSAL-WITHDRAW-SINGLE)
@@ -593,7 +593,7 @@
     (let ((vault-data (get-vault-data vault-id)))
       (map-set vaults vault-id
         (merge vault-data {liquid-balance: (- (get liquid-balance vault-data) amount)}))
-      (try! (contract-call? .proposal-manager mark-executed proposal-id))
+      (try! (contract-call? .proposal-manager-v2 mark-executed proposal-id))
       (print {
         event: "withdrawal-executed",
         vault-id: vault-id,
@@ -635,7 +635,7 @@
     (let ((updated-vault (get-vault-data vault-id)))
       (map-set vaults vault-id
         (merge updated-vault {liquid-balance: (- (get liquid-balance updated-vault) total-amount)}))
-      (try! (contract-call? .proposal-manager mark-executed proposal-id))
+      (try! (contract-call? .proposal-manager-v2 mark-executed proposal-id))
       (print {
         event: "share-distribution-executed",
         vault-id: vault-id,
@@ -677,8 +677,8 @@
         member-count: (+ (get member-count vault-data) u1),
         member-index-count: (+ slot-count u1)
       }))
-    (try! (contract-call? .vault-registry add-member-to-vault vault-id new-member))
-    (try! (contract-call? .proposal-manager mark-executed proposal-id))
+    (try! (contract-call? .vault-registry-v2 add-member-to-vault vault-id new-member))
+    (try! (contract-call? .proposal-manager-v2 mark-executed proposal-id))
     (ok true)))
 
 (define-private (execute-remove-member
@@ -708,8 +708,8 @@
       (merge member-data {active: false}))
     (map-set vaults vault-id
       (merge vault-data {member-count: (- (get member-count vault-data) u1)}))
-    (try! (contract-call? .vault-registry remove-member-from-vault vault-id target))
-    (try! (contract-call? .proposal-manager mark-executed proposal-id))
+    (try! (contract-call? .vault-registry-v2 remove-member-from-vault vault-id target))
+    (try! (contract-call? .proposal-manager-v2 mark-executed proposal-id))
     (ok true)))
 
 (define-private (execute-change-threshold
@@ -735,23 +735,23 @@
   )
     (asserts!
       (and
-        (>= new-threshold (contract-call? .governance-params get-min-threshold))
-        (<= new-threshold (contract-call? .governance-params get-max-threshold)))
+        (>= new-threshold (contract-call? .governance-params-v2 get-min-threshold))
+        (<= new-threshold (contract-call? .governance-params-v2 get-max-threshold)))
       ERR-INVALID-THRESHOLD)
     (map-set vaults vault-id (merge vault-data {threshold-percent: new-threshold}))
-    (try! (contract-call? .proposal-manager mark-executed proposal-id))
+    (try! (contract-call? .proposal-manager-v2 mark-executed proposal-id))
     (ok true)))
 
 (define-private (execute-enable-yield (vault-id uint) (proposal-id uint))
   (begin
     (map-set vaults vault-id (merge (get-vault-data vault-id) {yield-enabled: true}))
-    (try! (contract-call? .proposal-manager mark-executed proposal-id))
+    (try! (contract-call? .proposal-manager-v2 mark-executed proposal-id))
     (ok true)))
 
 (define-private (execute-disable-yield (vault-id uint) (proposal-id uint))
   (begin
     (map-set vaults vault-id (merge (get-vault-data vault-id) {yield-enabled: false}))
-    (try! (contract-call? .proposal-manager mark-executed proposal-id))
+    (try! (contract-call? .proposal-manager-v2 mark-executed proposal-id))
     (ok true)))
 
 (define-private (execute-deposit-to-zest
@@ -775,29 +775,29 @@
   (let (
     (amount (get amount proposal))
     (vault-data (get-vault-data vault-id))
-    (current-position (contract-call? .zest-adapter get-zest-position-value vault-id))
+    (current-position (contract-call? .zest-adapter-v2 get-zest-position-value vault-id))
   )
     (asserts! (get yield-enabled vault-data) ERR-YIELD-NOT-ENABLED)
-    (asserts! (not (contract-call? .governance-params is-zest-deposits-paused)) ERR-ZEST-DEPOSITS-PAUSED)
+    (asserts! (not (contract-call? .governance-params-v2 is-zest-deposits-paused)) ERR-ZEST-DEPOSITS-PAUSED)
     (asserts! (> amount u0) ERR-ZERO-AMOUNT)
     (asserts! (>= (get liquid-balance vault-data) amount) ERR-INSUFFICIENT-BALANCE)
     (let (
       (total-value (+ (get liquid-balance vault-data) current-position))
       (new-liquid (- (get liquid-balance vault-data) amount))
       (new-zest-total (+ current-position amount))
-      (max-pct (contract-call? .governance-params get-max-zest-allocation-pct))
-      (min-liquid-pct (contract-call? .governance-params get-min-liquid-reserve-pct))
+      (max-pct (contract-call? .governance-params-v2 get-max-zest-allocation-pct))
+      (min-liquid-pct (contract-call? .governance-params-v2 get-min-liquid-reserve-pct))
     )
       (asserts! (<= (* new-zest-total u100) (* total-value max-pct)) ERR-EXCEEDS-ZEST-CAP)
       (asserts! (>= (* new-liquid u100) (* total-value min-liquid-pct)) ERR-BELOW-LIQUID-RESERVE)
-      (try! (contract-call? token transfer amount (as-contract tx-sender) .zest-adapter none))
-      (try! (contract-call? .zest-adapter deposit-to-zest token vault-id amount))
+      (try! (contract-call? token transfer amount (as-contract tx-sender) .zest-adapter-v2 none))
+      (try! (contract-call? .zest-adapter-v2 deposit-to-zest token vault-id amount))
       (map-set vaults vault-id
         (merge vault-data {
           liquid-balance: new-liquid,
           zest-allocated: (+ (get zest-allocated vault-data) amount)
         }))
-      (try! (contract-call? .proposal-manager mark-executed proposal-id))
+      (try! (contract-call? .proposal-manager-v2 mark-executed proposal-id))
       (ok true))))
 
 (define-private (execute-withdraw-from-zest
@@ -820,14 +820,14 @@
     }))
   (let (
     (amount (get amount proposal))
-    (position (contract-call? .zest-adapter get-zest-position-value vault-id))
+    (position (contract-call? .zest-adapter-v2 get-zest-position-value vault-id))
   )
-    (asserts! (not (contract-call? .governance-params is-zest-withdrawals-paused)) ERR-ZEST-WITHDRAWALS-PAUSED)
+    (asserts! (not (contract-call? .governance-params-v2 is-zest-withdrawals-paused)) ERR-ZEST-WITHDRAWALS-PAUSED)
     (asserts! (> amount u0) ERR-ZERO-AMOUNT)
     (asserts! (>= position amount) ERR-INSUFFICIENT-BALANCE)
-    (try! (contract-call? .zest-adapter withdraw-from-zest token vault-id amount))
+    (try! (contract-call? .zest-adapter-v2 withdraw-from-zest token vault-id amount))
     (record-zest-withdrawal-to-liquid vault-id amount)
-    (try! (contract-call? .proposal-manager mark-executed proposal-id))
+    (try! (contract-call? .proposal-manager-v2 mark-executed proposal-id))
     (ok true)))
 
 (define-private (execute-change-beneficiary
@@ -850,7 +850,7 @@
   (begin
     (map-set vaults vault-id
       (merge (get-vault-data vault-id) {beneficiary: (get recipient proposal)}))
-    (try! (contract-call? .proposal-manager mark-executed proposal-id))
+    (try! (contract-call? .proposal-manager-v2 mark-executed proposal-id))
     (ok true)))
 
 (define-private (execute-close-vault (token <ft-trait>) (vault-id uint) (proposal-id uint))
@@ -858,8 +858,8 @@
     (asserts! (is-eq (get-total-vault-value-internal vault-id) u0) ERR-VAULT-NOT-EMPTY)
     (map-set vaults vault-id
       (merge (get-vault-data vault-id) {status: STATUS-CLOSED}))
-    (try! (contract-call? .vault-registry update-vault-status vault-id "CLOSED"))
-    (try! (contract-call? .proposal-manager mark-executed proposal-id))
+    (try! (contract-call? .vault-registry-v2 update-vault-status vault-id "CLOSED"))
+    (try! (contract-call? .proposal-manager-v2 mark-executed proposal-id))
     (ok true)))
 
 (define-public (sync-zest-yield (vault-id uint))
@@ -867,7 +867,7 @@
     (asserts! (is-protocol-initialized) ERR-NOT-INITIALIZED)
     (asserts! (vault-exists vault-id) ERR-VAULT-NOT-FOUND)
     (asserts! (is-active-member-internal vault-id tx-sender) ERR-NOT-MEMBER)
-    (let ((new-position (try! (contract-call? .zest-adapter sync-position vault-id))))
+    (let ((new-position (try! (contract-call? .zest-adapter-v2 sync-position vault-id))))
       (print {
         event: "yield-updated",
         vault-id: vault-id,
@@ -917,13 +917,13 @@
   (get liquid-balance (get-vault-data vault-id)))
 
 (define-read-only (get-zest-position-value (vault-id uint))
-  (contract-call? .zest-adapter get-zest-position-value vault-id))
+  (contract-call? .zest-adapter-v2 get-zest-position-value vault-id))
 
 (define-read-only (get-vault-zest-position (vault-id uint))
-  (contract-call? .zest-adapter get-zest-position-value vault-id))
+  (contract-call? .zest-adapter-v2 get-zest-position-value vault-id))
 
 (define-read-only (get-vault-yield-earned (vault-id uint))
-  (contract-call? .zest-adapter get-yield-earned vault-id))
+  (contract-call? .zest-adapter-v2 get-yield-earned vault-id))
 
 (define-read-only (get-vault-status (vault-id uint))
   (get status (get-vault-data vault-id)))

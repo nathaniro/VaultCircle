@@ -6,37 +6,37 @@ telemetry = false
 cache_dir = ".\\.cache"
 requirements = []
 
-[contracts.sip-010-ft-trait]
-path = "contracts/sip-010-ft-trait.clar"
+[contracts.sip-010-ft-trait-v2]
+path = "contracts/sip-010-ft-trait-v2.clar"
 clarity_version = 3
 epoch = "latest"
 
-[contracts.governance-params]
-path = "contracts/governance-params.clar"
+[contracts.governance-params-v2]
+path = "contracts/governance-params-v2.clar"
 clarity_version = 3
 epoch = "latest"
 
-[contracts.vault-registry]
-path = "contracts/vault-registry.clar"
+[contracts.vault-registry-v2]
+path = "contracts/vault-registry-v2.clar"
 clarity_version = 3
 epoch = "latest"
 
-[contracts.zest-adapter]
-path = "contracts/zest-adapter-testnet.clar"
+[contracts.zest-adapter-v2]
+path = "contracts/zest-adapter-testnet-v2.clar"
 clarity_version = 3
 epoch = "latest"
-depends_on = ["sip-010-ft-trait"]
+depends_on = ["sip-010-ft-trait-v2"]
 
-[contracts.proposal-manager]
-path = "contracts/proposal-manager.clar"
+[contracts.proposal-manager-v2]
+path = "contracts/proposal-manager-v2.clar"
 clarity_version = 3
 epoch = "latest"
 
-[contracts.vault-circle]
-path = "contracts/vault-circle.clar"
+[contracts.vault-circle-v2]
+path = "contracts/vault-circle-v2.clar"
 clarity_version = 3
 epoch = "latest"
-depends_on = ["sip-010-ft-trait", "governance-params", "vault-registry", "proposal-manager", "zest-adapter"]
+depends_on = ["sip-010-ft-trait-v2", "governance-params-v2", "vault-registry-v2", "proposal-manager-v2", "zest-adapter-v2"]
 
 [repl.analysis]
 passes = ["check_checker"]

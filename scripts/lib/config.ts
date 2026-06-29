@@ -156,11 +156,11 @@ export function getDeploymentSummaryPath() {
 
 export function getExpectedContracts(deployerAddress = appConfig.deployerAddress): ProtocolContracts {
   return {
-    governanceParams: `${deployerAddress}.governance-params`,
-    proposalManager: `${deployerAddress}.proposal-manager`,
-    vaultRegistry: `${deployerAddress}.vault-registry`,
-    zestAdapter: `${deployerAddress}.zest-adapter`,
-    vaultCircle: `${deployerAddress}.vault-circle`
+    governanceParams: `${deployerAddress}.governance-params-v2`,
+    proposalManager: `${deployerAddress}.proposal-manager-v2`,
+    vaultRegistry: `${deployerAddress}.vault-registry-v2`,
+    zestAdapter: `${deployerAddress}.zest-adapter-v2`,
+    vaultCircle: `${deployerAddress}.vault-circle-v2`
   };
 }
 
@@ -335,11 +335,11 @@ export function syncTestnetSettings() {
 
 export function extractContractsFromDeploymentPlan(plan: string): ProtocolContracts {
   const contractNameMap: Record<string, keyof ProtocolContracts> = {
-    "governance-params": "governanceParams",
-    "proposal-manager": "proposalManager",
-    "vault-registry": "vaultRegistry",
-    "zest-adapter": "zestAdapter",
-    "vault-circle": "vaultCircle"
+    "governance-params-v2": "governanceParams",
+    "proposal-manager-v2": "proposalManager",
+    "vault-registry-v2": "vaultRegistry",
+    "zest-adapter-v2": "zestAdapter",
+    "vault-circle-v2": "vaultCircle"
   };
   const contracts = {} as Partial<ProtocolContracts>;
   const transactionBlocks = plan.split(/\r?\n(?=\s*-\s)/g);
