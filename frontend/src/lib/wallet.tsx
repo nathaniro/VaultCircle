@@ -39,6 +39,7 @@ interface WalletContextType {
   selectedWalletName: string | null;
   walletOptions: WalletOption[];
   walletPickerOpen: boolean;
+  connectError: string | null;
   connect: (walletId?: WalletProviderId) => void;
   disconnect: () => void;
   openWalletPicker: () => void;
@@ -91,6 +92,7 @@ const WalletContext = createContext<WalletContextType>({
   selectedWalletName: null,
   walletOptions: defaultWalletOptions,
   walletPickerOpen: false,
+  connectError: null,
   connect: () => {},
   disconnect: () => {},
   openWalletPicker: () => {},
@@ -153,6 +155,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [selectedWalletId, setSelectedWalletId] = useState<WalletProviderId | null>(null);
   const [walletOptions, setWalletOptions] = useState<WalletOption[]>(defaultWalletOptions);
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   const refreshWalletState = useCallback(async () => {
     const signedIn = getUserSignedInState();
@@ -269,9 +272,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         }
 
         setRpcSession(walletId, stxAddress);
+        setConnectError(null);
         logWallet("connectViaRpc(): session established", { walletId, address: stxAddress });
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         console.error("[VaultCircle][Wallet] connectViaRpc(): failed", error);
+        setConnectError(`${getWalletName(walletId) ?? "Wallet"} connect failed: ${message}`);
       } finally {
         void refreshWalletState();
       }
@@ -293,6 +299,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    setConnectError(null);
     const provider = resolveWalletProviderById(walletId);
     logWallet("connect(): resolved provider", {
       walletId,
@@ -307,17 +314,21 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
     if (!provider) {
       console.warn("[VaultCircle][Wallet] connect(): provider missing after selection");
+      setConnectError(`${getWalletName(walletId) ?? "Wallet"} extension was not detected. Make sure it is installed and unlocked, then reload the page.`);
       void refreshWalletState();
       return;
     }
 
-    if (!providerSupportsLegacyConnect(provider)) {
-      logWallet("connect(): provider lacks legacy authenticationRequest API, using RPC connect", { walletId });
+    if (typeof provider.request === "function") {
+      logWallet("connect(): provider supports RPC request(), using RPC connect", {
+        walletId,
+        alsoHasLegacyApi: providerSupportsLegacyConnect(provider)
+      });
       void connectViaRpc(walletId, provider);
       return;
     }
 
-    logWallet("connect(): calling showConnect()", {
+    logWallet("connect(): provider has no request(), falling back to legacy showConnect()", {
       walletId,
       redirectTo: getCurrentRoute()
     });
@@ -340,7 +351,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       );
       logWallet("connect(): showConnect() invoked successfully", { walletId });
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error("[VaultCircle][Wallet] connect(): showConnect() threw synchronously", error);
+      setConnectError(`${getWalletName(walletId) ?? "Wallet"} connect failed: ${message}`);
       void refreshWalletState();
     }
   };
@@ -374,6 +387,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         selectedWalletName,
         walletOptions,
         walletPickerOpen,
+        connectError,
         connect,
         disconnect,
         openWalletPicker,

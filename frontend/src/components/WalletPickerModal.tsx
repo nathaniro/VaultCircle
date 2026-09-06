@@ -3,7 +3,7 @@
 import { useWallet } from "@/lib/wallet";
 
 export default function WalletPickerModal() {
-  const { connect, walletOptions, walletPickerOpen, closeWalletPicker, selectedWalletId } = useWallet();
+  const { connect, walletOptions, walletPickerOpen, closeWalletPicker, selectedWalletId, connectError } = useWallet();
 
   if (!walletPickerOpen) return null;
 
@@ -28,6 +28,11 @@ export default function WalletPickerModal() {
         </div>
 
         <div className="space-y-4 px-6 py-6 md:px-8">
+          {connectError ? (
+            <div className="rounded-[18px] border border-rose-400/30 bg-rose-400/10 px-5 py-4 text-sm leading-6 text-rose-200">
+              {connectError}
+            </div>
+          ) : null}
           {walletOptions.map((wallet) => {
             const isSelected = selectedWalletId === wallet.id;
 
