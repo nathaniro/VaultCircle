@@ -36,9 +36,17 @@ function isConnectCompatibleProvider(provider: unknown): provider is ConnectComp
   if (!provider || typeof provider !== "object") return false;
 
   const candidate = provider as Partial<ConnectCompatibleProvider>;
-  return (
+  const hasLegacyApi =
     typeof candidate.authenticationRequest === "function" &&
-    typeof candidate.transactionRequest === "function"
+    typeof candidate.transactionRequest === "function";
+  const hasModernApi = typeof candidate.request === "function";
+  return hasLegacyApi || hasModernApi;
+}
+
+export function providerSupportsLegacyConnect(provider: ConnectCompatibleProvider): boolean {
+  return (
+    typeof provider.authenticationRequest === "function" &&
+    typeof provider.transactionRequest === "function"
   );
 }
 
@@ -128,6 +136,43 @@ export function clearAppSelectedWalletProviderId() {
   if (typeof window !== "undefined") {
     window.localStorage.removeItem(APP_SELECTED_WALLET_KEY);
   }
+}
+
+const RPC_SESSION_KEY = "vaultcircle.rpc-session";
+
+type RpcSession = { walletId: WalletProviderId; address: string };
+
+function isRpcSession(value: unknown): value is RpcSession {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      isSupportedWalletProviderId((value as Partial<RpcSession>).walletId) &&
+      typeof (value as Partial<RpcSession>).address === "string"
+  );
+}
+
+export function getRpcSession(): RpcSession | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(RPC_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return isRpcSession(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setRpcSession(walletId: WalletProviderId, address: string) {
+  logWalletProvider("setRpcSession()", { walletId, address });
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(RPC_SESSION_KEY, JSON.stringify({ walletId, address }));
+}
+
+export function clearRpcSession() {
+  logWalletProvider("clearRpcSession()");
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(RPC_SESSION_KEY);
 }
 
 export function getSelectedWalletProvider(): ConnectCompatibleProvider | undefined {

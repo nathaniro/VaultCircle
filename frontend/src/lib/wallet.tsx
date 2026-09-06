@@ -8,10 +8,14 @@ import { getSbtcBalance } from "./stacks";
 import { APP_DETAILS, repairUserSessionStorage, resetUserSessionStorage, userSession } from "./app-session";
 import {
   clearAppSelectedWalletProviderId,
+  clearRpcSession,
   getInstalledWalletProviderIds,
+  getRpcSession,
   getSelectedWalletProviderId,
+  providerSupportsLegacyConnect,
   resolveWalletProviderById,
   setAppSelectedWalletProviderId,
+  setRpcSession,
   type WalletProviderId
 } from "./wallet-provider";
 
@@ -94,6 +98,15 @@ const WalletContext = createContext<WalletContextType>({
 });
 
 function getSessionAddress(): string | null {
+  const rpcSession = getRpcSession();
+  if (rpcSession) {
+    logWallet("getSessionAddress(): using RPC session", {
+      walletId: rpcSession.walletId,
+      address: rpcSession.address
+    });
+    return rpcSession.address;
+  }
+
   if (!getUserSignedInState()) {
     logWallet("getSessionAddress(): user not signed in");
     return null;
@@ -233,6 +246,39 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setWalletPickerOpen(false);
   };
 
+  const connectViaRpc = useCallback(
+    async (walletId: WalletProviderId, provider: NonNullable<ReturnType<typeof resolveWalletProviderById>>) => {
+      logWallet("connectViaRpc(): requesting addresses", { walletId });
+      try {
+        if (typeof provider.request !== "function") {
+          throw new Error("Wallet provider does not support the connect request.");
+        }
+
+        const response = (await provider.request("getAddresses")) as {
+          result?: { addresses?: Array<{ symbol?: string; address?: string }> };
+          error?: { message?: string };
+        };
+
+        if (response?.error) {
+          throw new Error(response.error.message ?? "Wallet returned an error.");
+        }
+
+        const stxAddress = response?.result?.addresses?.find((entry) => entry.symbol === "STX")?.address;
+        if (!stxAddress) {
+          throw new Error("Wallet did not return a Stacks address.");
+        }
+
+        setRpcSession(walletId, stxAddress);
+        logWallet("connectViaRpc(): session established", { walletId, address: stxAddress });
+      } catch (error) {
+        console.error("[VaultCircle][Wallet] connectViaRpc(): failed", error);
+      } finally {
+        void refreshWalletState();
+      }
+    },
+    [refreshWalletState]
+  );
+
   const connect = (walletId?: WalletProviderId) => {
     logWallet("connect(): invoked", {
       walletId: walletId ?? null,
@@ -262,6 +308,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     if (!provider) {
       console.warn("[VaultCircle][Wallet] connect(): provider missing after selection");
       void refreshWalletState();
+      return;
+    }
+
+    if (!providerSupportsLegacyConnect(provider)) {
+      logWallet("connect(): provider lacks legacy authenticationRequest API, using RPC connect", { walletId });
+      void connectViaRpc(walletId, provider);
       return;
     }
 
@@ -301,6 +353,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     userSession.signUserOut(getCurrentRoute());
     clearAppSelectedWalletProviderId();
     clearSelectedProviderId();
+    clearRpcSession();
     setConnected(false);
     setAddress(null);
     setSelectedWalletId(null);
