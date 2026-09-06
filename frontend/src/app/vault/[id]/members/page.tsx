@@ -126,10 +126,10 @@ export default function MembersPage() {
         }
         meta={
           currentMember ? (
-            <div className="flex flex-wrap gap-3 text-sm text-slate-400">
+            <div className="flex flex-wrap gap-3 text-sm text-ink-400">
               <VaultMembershipBadge creator={vault.creator === address} />
               <span className={vault.status === "ACTIVE" ? "badge-active" : "badge-executed"}>{vault.status}</span>
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+              <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-4 py-2">
                 {required} approvals required across {vault.memberCount} members
               </span>
             </div>
@@ -139,7 +139,7 @@ export default function MembersPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="table-shell">
-          <div className="grid gap-3 px-6 py-5 text-sm text-slate-400 md:grid-cols-[2fr_1fr_1fr_0.8fr]">
+          <div className="grid gap-3 px-6 py-5 text-sm text-ink-400 md:grid-cols-[2fr_1fr_1fr_0.8fr]">
             <span>Member</span>
             <span>Contribution</span>
             <span>Share</span>
@@ -153,14 +153,14 @@ export default function MembersPage() {
               <div key={member.address} className="table-row grid gap-3 px-6 py-5 md:grid-cols-[2fr_1fr_1fr_0.8fr]">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-mono text-sm text-slate-200 break-all">{member.address}</p>
-                    {isYou && <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] font-semibold text-cyan-200">You</span>}
-                    {member.address === vault.creator && <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] font-semibold text-slate-300">Creator</span>}
+                    <p className="font-mono text-sm text-ink-200 break-all">{member.address}</p>
+                    {isYou && <span className="rounded-full border border-orange-400/20 bg-orange-400/10 px-2 py-1 text-[11px] font-semibold text-orange-800 dark:text-orange-200">You</span>}
+                    {member.address === vault.creator && <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-2 py-1 text-[11px] font-semibold text-ink-300">Creator</span>}
                   </div>
-                  <p className="mt-2 text-xs text-slate-500">Joined at block {member.joinedAt}</p>
+                  <p className="mt-2 text-xs text-ink-500">Joined at block {member.joinedAt}</p>
                 </div>
-                <p className="text-sm font-semibold text-white">{satsTosBTC(member.contributed)} sBTC</p>
-                <p className="text-sm font-semibold text-amber-300">{sharePercent}%</p>
+                <p className="text-sm font-semibold text-ink-50">{satsTosBTC(member.contributed)} sBTC</p>
+                <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">{sharePercent}%</p>
                 <div>
                   <span className={member.active ? "badge-active" : "badge-executed"}>{member.active ? "Active" : "Removed"}</span>
                 </div>

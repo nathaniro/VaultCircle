@@ -340,13 +340,13 @@ export default function CreateProposalPage() {
         backHref={`/vault/${vaultId}/proposals`}
         backLabel="Back to proposals"
         meta={
-          <div className="flex flex-wrap gap-3 text-sm text-slate-400">
+          <div className="flex flex-wrap gap-3 text-sm text-ink-400">
             {isMember && vault && <VaultMembershipBadge creator={vault.creator === address} />}
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+            <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-4 py-2">
               Current vault threshold {vault.thresholdPercent}%
             </span>
             <span className={vault.status === "ACTIVE" ? "badge-active" : "badge-executed"}>{vault.status}</span>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+            <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-4 py-2">
               Wallet role: {isMember ? "proposer" : connected ? "read-only viewer" : "connect wallet to propose"}
             </span>
           </div>
@@ -445,7 +445,7 @@ export default function CreateProposalPage() {
               onChange={(e) => setReason(e.target.value)}
               required
             />
-            <p className="mt-2 text-right text-sm text-slate-500">{reason.length}/256</p>
+            <p className="mt-2 text-right text-sm text-ink-500">{reason.length}/256</p>
           </div>
 
           <div>
@@ -459,7 +459,7 @@ export default function CreateProposalPage() {
               step={144}
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full accent-cyan-400"
+              className="w-full accent-orange-400"
             />
             <p className="helper-text">
               A longer duration gives members more time to review and vote before the proposal expires.
@@ -523,7 +523,7 @@ export default function CreateProposalPage() {
                     ? "Empty Treasury Before Closing"
                     : "Create Proposal"}
           </button>
-          <p className="text-center text-sm text-slate-500">
+          <p className="text-center text-sm text-ink-500">
             When you submit, {selectedWalletName ?? "your wallet"} will sign the proposal creation request only after VaultCircle confirms the action is valid for the vault&apos;s current treasury state.
           </p>
         </form>
@@ -534,11 +534,11 @@ export default function CreateProposalPage() {
             tone="brand"
             description={
               <>
-                <p>Action type: <strong className="text-white">{PROPOSAL_TYPE_LABELS[PROPOSAL_TYPE_IDS[proposalType]]}</strong></p>
-                <p className="mt-2">Amount or threshold: <strong className="text-white">{amountPreview}</strong></p>
-                <p className="mt-2">Target address: <strong className="text-white">{recipient || "No address needed yet"}</strong></p>
-                <p className="mt-2">Voting window: <strong className="text-white">{duration} blocks</strong></p>
-                <p className="mt-2">Reason payload: <strong className="text-white">{normalizedReasonPreview || "Add a reason to preview the final on-chain payload"}</strong></p>
+                <p>Action type: <strong className="text-ink-50">{PROPOSAL_TYPE_LABELS[PROPOSAL_TYPE_IDS[proposalType]]}</strong></p>
+                <p className="mt-2">Amount or threshold: <strong className="text-ink-50">{amountPreview}</strong></p>
+                <p className="mt-2">Target address: <strong className="text-ink-50">{recipient || "No address needed yet"}</strong></p>
+                <p className="mt-2">Voting window: <strong className="text-ink-50">{duration} blocks</strong></p>
+                <p className="mt-2">Reason payload: <strong className="text-ink-50">{normalizedReasonPreview || "Add a reason to preview the final on-chain payload"}</strong></p>
               </>
             }
           />

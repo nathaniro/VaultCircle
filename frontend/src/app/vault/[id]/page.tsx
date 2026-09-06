@@ -220,12 +220,12 @@ export default function VaultDashboard() {
           )
         }
         meta={
-          <div className="flex flex-wrap gap-3 text-sm text-slate-400">
+          <div className="flex flex-wrap gap-3 text-sm text-ink-400">
             {isMember && <VaultMembershipBadge creator={vault.creator === address} />}
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+            <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-4 py-2">
               Creator {vault.creator.slice(0, 12)}...
             </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+            <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-4 py-2">
               {requiredApprovals} of {vault.memberCount} approvals required
             </span>
             <span className={vault.status === "ACTIVE" ? "badge-active" : "badge-executed"}>{vault.status}</span>
@@ -326,7 +326,7 @@ export default function VaultDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <p className="eyebrow">Latest Governance Activity</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">Recent proposals</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-ink-50">Recent proposals</h2>
           </div>
           <Link href={`/vault/${vaultId}/proposals`} className="btn-secondary">
             View all proposals
@@ -351,24 +351,24 @@ export default function VaultDashboard() {
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                   <div className="max-w-3xl">
                     <div className="flex flex-wrap items-center gap-3">
-                      <p className="text-lg font-semibold text-white">
+                      <p className="text-lg font-semibold text-ink-50">
                         Proposal #{proposal.proposalId}: {PROPOSAL_TYPE_LABELS[proposal.proposalType] || "Unknown action"}
                       </p>
                       <ProposalBadge status={proposal.status} />
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-400">{proposal.reason}</p>
-                    <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-400">
+                    <p className="mt-3 text-sm leading-6 text-ink-400">{proposal.reason}</p>
+                    <div className="mt-4 flex flex-wrap gap-3 text-sm text-ink-400">
                       {proposal.amount > 0 && (
-                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
+                        <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-3 py-2">
                           Amount {satsTosBTC(proposal.amount)} sBTC
                         </span>
                       )}
-                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
+                      <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-3 py-2">
                         {proposal.approvals} approval{proposal.approvals !== 1 ? "s" : ""} / {proposal.rejections} rejection{proposal.rejections !== 1 ? "s" : ""}
                       </span>
                     </div>
                     <div className="mt-4">
-                      <div className="mb-2 flex items-center justify-between text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                      <div className="mb-2 flex items-center justify-between text-xs font-medium uppercase tracking-[0.18em] text-ink-500">
                         <span>Approval progress</span>
                         <span>{Math.min(100, Math.round((proposal.approvals / Math.max(requiredApprovals, 1)) * 100))}%</span>
                       </div>
@@ -380,7 +380,7 @@ export default function VaultDashboard() {
                       </div>
                     </div>
                   </div>
-                  <p className="text-sm text-slate-500">Expires at block {proposal.expiresAt}</p>
+                  <p className="text-sm text-ink-500">Expires at block {proposal.expiresAt}</p>
                 </div>
               </Link>
             ))}

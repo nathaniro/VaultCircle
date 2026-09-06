@@ -17,7 +17,7 @@ export default function VaultLayout({ children }: { children: React.ReactNode })
 
   return (
     <>
-      <div className="border-b border-white/10 bg-white/[0.03]">
+      <div className="border-b border-overlay/10 bg-overlay/[0.03]">
         <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 py-4 sm:px-6 lg:px-8">
           {tabs.map((tab) => {
             const href = tab.href(id);
@@ -28,8 +28,8 @@ export default function VaultLayout({ children }: { children: React.ReactNode })
                 href={href}
                 className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
                   active
-                    ? "bg-cyan-400/10 text-cyan-200 border border-cyan-400/20"
-                    : "border border-transparent text-slate-400 hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
+                    ? "bg-orange-400/10 text-orange-800 dark:text-orange-200 border border-orange-400/20"
+                    : "border border-transparent text-ink-400 hover:border-overlay/10 hover:bg-overlay/[0.04] hover:text-ink-50"
                 }`}
               >
                 {tab.label}

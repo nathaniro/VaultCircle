@@ -276,11 +276,11 @@ function VaultsPageContent() {
           </div>
         }
         meta={
-          <div className="flex flex-wrap gap-3 text-sm text-slate-400">
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+          <div className="flex flex-wrap gap-3 text-sm text-ink-400">
+            <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-4 py-2">
               {connected ? "Connected wallet role: member signer" : "Public mode: protocol-wide visibility"}
             </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+            <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-4 py-2">
               Network: Stacks Testnet
             </span>
           </div>
@@ -312,8 +312,8 @@ function VaultsPageContent() {
       )}
 
       {pendingVault && refreshingPendingVault && !revealedVault && (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-sm text-slate-300">
-          <p className="font-semibold text-white">{pendingVault.name}</p>
+        <div className="rounded-2xl border border-overlay/10 bg-overlay/[0.03] px-5 py-4 text-sm text-ink-300">
+          <p className="font-semibold text-ink-50">{pendingVault.name}</p>
           <p className="mt-2">
             Waiting for a vault with {pendingVault.memberCount} member{pendingVault.memberCount !== 1 ? "s" : ""},{" "}
             {pendingVault.thresholdPercent}% approvals, and {pendingVault.yieldEnabled ? "yield enabled" : "yield disabled"}.

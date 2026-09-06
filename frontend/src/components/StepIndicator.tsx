@@ -21,21 +21,21 @@ export default function StepIndicator({ currentStep, steps }: StepIndicatorProps
                 <div
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border text-sm font-semibold ${
                     isComplete
-                      ? "border-emerald-400/35 bg-emerald-400/15 text-emerald-200"
+                      ? "border-emerald-400/35 bg-emerald-400/15 text-emerald-800 dark:text-emerald-200"
                       : isActive
-                        ? "border-cyan-400/35 bg-cyan-400/15 text-cyan-100"
-                        : "border-white/10 bg-white/[0.03] text-slate-400"
+                        ? "border-orange-400/35 bg-orange-400/15 text-orange-800 dark:text-orange-100"
+                        : "border-overlay/10 bg-overlay/[0.03] text-ink-400"
                   }`}
                 >
                   {stepNumber}
                 </div>
-                {index !== steps.length - 1 && <div className="hidden h-12 w-px bg-white/10 lg:block" />}
+                {index !== steps.length - 1 && <div className="hidden h-12 w-px bg-overlay/10 lg:block" />}
               </div>
               <div>
-                <p className={`text-sm font-semibold ${isActive || isComplete ? "text-white" : "text-slate-500"}`}>
+                <p className={`text-sm font-semibold ${isActive || isComplete ? "text-ink-50" : "text-ink-500"}`}>
                   {step.title}
                 </p>
-                <p className="mt-1 text-sm leading-6 text-slate-400">{step.description}</p>
+                <p className="mt-1 text-sm leading-6 text-ink-400">{step.description}</p>
               </div>
             </div>
           );

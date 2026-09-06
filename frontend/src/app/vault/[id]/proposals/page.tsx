@@ -256,33 +256,33 @@ function ProposalsPageContent() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-3xl">
           <div className="flex flex-wrap items-center gap-3">
-            <p className="text-xl font-semibold text-white">
+            <p className="text-xl font-semibold text-ink-50">
               Proposal #{proposal.proposalId}: {PROPOSAL_TYPE_LABELS[proposal.proposalType] || "Unknown action"}
             </p>
             <ProposalBadge status={proposal.status} />
           </div>
-          <p className="mt-3 text-sm leading-6 text-slate-400">{proposal.reason}</p>
+          <p className="mt-3 text-sm leading-6 text-ink-400">{proposal.reason}</p>
         </div>
-        <p className="text-sm text-slate-500">Expires at block {proposal.expiresAt}</p>
+        <p className="text-sm text-ink-500">Expires at block {proposal.expiresAt}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="surface-card-muted">
           <p className="stat-label">Approvals</p>
-          <p className="mt-2 text-xl font-semibold text-emerald-300">{proposal.approvals}</p>
+          <p className="mt-2 text-xl font-semibold text-emerald-700 dark:text-emerald-300">{proposal.approvals}</p>
         </div>
         <div className="surface-card-muted">
           <p className="stat-label">Rejections</p>
-          <p className="mt-2 text-xl font-semibold text-rose-300">{proposal.rejections}</p>
+          <p className="mt-2 text-xl font-semibold text-rose-700 dark:text-rose-300">{proposal.rejections}</p>
         </div>
         <div className="surface-card-muted">
           <p className="stat-label">Needed to pass</p>
-          <p className="mt-2 text-xl font-semibold text-white">{required}</p>
+          <p className="mt-2 text-xl font-semibold text-ink-50">{required}</p>
         </div>
       </div>
 
       <div>
-        <div className="mb-2 flex items-center justify-between text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+        <div className="mb-2 flex items-center justify-between text-xs font-medium uppercase tracking-[0.18em] text-ink-500">
           <span>Approval progress</span>
           <span>{Math.min(100, Math.round((proposal.approvals / Math.max(required, 1)) * 100))}%</span>
         </div>
@@ -295,15 +295,15 @@ function ProposalsPageContent() {
       </div>
 
       {(proposal.amount > 0 || proposal.recipient) && (
-        <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm text-slate-300">
-          {proposal.amount > 0 && <p>Amount involved: <strong className="text-white">{satsTosBTC(proposal.amount)} sBTC</strong></p>}
-          {proposal.recipient && <p className="mt-2 break-all">Recipient or target address: <span className="font-mono text-slate-200">{proposal.recipient}</span></p>}
+        <div className="rounded-2xl border border-overlay/10 bg-ink-950/50 p-4 text-sm text-ink-300">
+          {proposal.amount > 0 && <p>Amount involved: <strong className="text-ink-50">{satsTosBTC(proposal.amount)} sBTC</strong></p>}
+          {proposal.recipient && <p className="mt-2 break-all">Recipient or target address: <span className="font-mono text-ink-200">{proposal.recipient}</span></p>}
         </div>
       )}
 
-      <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">Created at block {proposal.createdAt}</span>
-        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
+      <div className="flex flex-wrap gap-3 text-xs text-ink-500">
+        <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-3 py-2">Created at block {proposal.createdAt}</span>
+        <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-3 py-2">
           {proposal.status === "ACTIVE"
             ? "Next step: gather votes"
             : proposal.status === "PASSED"
@@ -419,12 +419,12 @@ function ProposalsPageContent() {
           )
         }
         meta={
-          <div className="flex flex-wrap gap-3 text-sm text-slate-400">
+          <div className="flex flex-wrap gap-3 text-sm text-ink-400">
             {isMember && vault && <VaultMembershipBadge creator={vault.creator === address} />}
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+            <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-4 py-2">
               {required} approval{required !== 1 ? "s" : ""} required to pass
             </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+            <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-4 py-2">
               Connected wallet role: {isMember ? "voter and potential executor" : connected ? "read-only viewer" : "connect wallet to participate"}
             </span>
           </div>
@@ -485,7 +485,7 @@ function ProposalsPageContent() {
         <section className="space-y-4">
           <div>
             <p className="eyebrow">Open Decisions</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">Active proposals</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-ink-50">Active proposals</h2>
           </div>
           <div className="space-y-4">{filterByStatus(["ACTIVE"]).map(renderProposal)}</div>
         </section>
@@ -495,7 +495,7 @@ function ProposalsPageContent() {
         <section className="space-y-4">
           <div>
             <p className="eyebrow">Execution Queue</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">Passed proposals</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-ink-50">Passed proposals</h2>
           </div>
           <div className="space-y-4">{filterByStatus(["PASSED"]).map(renderProposal)}</div>
         </section>
@@ -505,7 +505,7 @@ function ProposalsPageContent() {
         <section className="space-y-4">
           <div>
             <p className="eyebrow">Completed</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">Executed proposals</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-ink-50">Executed proposals</h2>
           </div>
           <div className="space-y-4">{filterByStatus(["EXECUTED"]).map(renderProposal)}</div>
         </section>
@@ -515,7 +515,7 @@ function ProposalsPageContent() {
         <section className="space-y-4">
           <div>
             <p className="eyebrow">Closed Without Execution</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white">Rejected or expired proposals</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-ink-50">Rejected or expired proposals</h2>
           </div>
           <div className="space-y-4">{filterByStatus(["REJECTED", "EXPIRED"]).map(renderProposal)}</div>
         </section>

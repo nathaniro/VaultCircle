@@ -169,13 +169,13 @@ export default function DepositPage() {
         backHref={`/vault/${vaultId}`}
         backLabel="Back to vault overview"
         meta={
-          <div className="flex flex-wrap gap-3 text-sm text-slate-400">
+          <div className="flex flex-wrap gap-3 text-sm text-ink-400">
             {isActiveMember && <VaultMembershipBadge creator={vault.creator === address} />}
             <span className={vault.status === "ACTIVE" ? "badge-active" : "badge-executed"}>{vault.status}</span>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+            <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-4 py-2">
               Connected role: {!vaultIsActive ? "archived vault" : isActiveMember ? "depositor and member" : connected ? "read-only viewer" : "connect wallet to deposit"}
             </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+            <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-4 py-2">
               Next step: sign a deposit transaction in your wallet
             </span>
           </div>
@@ -225,7 +225,7 @@ export default function DepositPage() {
               Enter the amount in sBTC. The app converts it into satoshis before sending the transaction to the contract.
             </p>
             {amount && !Number.isNaN(sBTCToSats(amount)) && (
-              <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-300">
+              <p className="mt-3 rounded-2xl border border-overlay/10 bg-overlay/[0.04] px-4 py-3 text-sm text-ink-300">
                 Transaction preview: deposit {amount} sBTC ({sBTCToSats(amount).toLocaleString()} sats) from {selectedWalletName ?? "your wallet"} into this vault.
               </p>
             )}

@@ -371,11 +371,11 @@ export default function CreateVaultPage() {
         title="Create a new shared vault"
         description="Set up a treasury where members contribute sBTC and majority approval gates every withdrawal, distribution, and policy change."
         meta={
-          <div className="flex flex-wrap gap-3 text-sm text-slate-400">
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+          <div className="flex flex-wrap gap-3 text-sm text-ink-400">
+            <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-4 py-2">
               Network: Stacks Testnet
             </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+            <span className="rounded-full border border-overlay/10 bg-overlay/[0.04] px-4 py-2">
               Your wallet becomes creator and first member
             </span>
           </div>
@@ -413,41 +413,41 @@ export default function CreateVaultPage() {
         <div className="rounded-[28px] border border-amber-400/25 bg-amber-400/[0.06] p-6 md:p-8">
           <div className="flex items-center gap-3">
             <span className="glow-dot bg-amber-400" />
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-300">Setup Required</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300">Setup Required</p>
           </div>
-          <h3 className="mt-3 text-xl font-semibold text-white">
+          <h3 className="mt-3 text-xl font-semibold text-ink-50">
             VaultCircle is not initialized on this deployment
           </h3>
-          <p className="mt-2 text-sm leading-6 text-amber-100/80">
+          <p className="mt-2 text-sm leading-6 text-amber-800/90 dark:text-amber-100/80">
             The protocol admin must call{" "}
-            <code className="rounded bg-black/30 px-1.5 py-0.5 font-mono text-xs">initialize-protocol</code>{" "}
+            <code className="rounded bg-overlay/10 px-1.5 py-0.5 font-mono text-xs">initialize-protocol</code>{" "}
             with the sBTC contract address before any vault can be created. This is a one-time setup step.
           </p>
           {isAdmin ? (
             <div className="mt-5 space-y-3">
               {initTxId ? (
-                <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3 text-sm text-cyan-200">
+                <div className="rounded-xl border border-orange-400/20 bg-orange-400/[0.06] px-4 py-3 text-sm text-orange-800 dark:text-orange-200">
                   <p className="font-semibold">Initialization broadcast — waiting for Stacks Testnet to confirm…</p>
-                  <p className="mt-1 text-xs text-cyan-300/70">
+                  <p className="mt-1 text-xs text-orange-700/70 dark:text-orange-300/70">
                     Blocks take 30–90 seconds. Checking every 5 seconds automatically.
                   </p>
                   <a
                     href={`${STACKS_EXPLORER_URL}/txid/${initTxId}?chain=testnet`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-2 block truncate font-mono text-xs text-cyan-400 underline hover:text-cyan-300"
+                    className="mt-2 block truncate font-mono text-xs text-orange-600 underline hover:text-orange-500 dark:text-orange-400 dark:hover:text-orange-300"
                   >
                     {initTxId}
                   </a>
                 </div>
               ) : (
                 <>
-                  <p className="text-sm text-amber-200">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
                     Your wallet is the protocol admin. Click below to initialize VaultCircle with{" "}
                     <code className="font-mono text-xs">{CONTRACTS.sbtc}</code>.
                   </p>
                   {initError && (
-                    <p className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
+                    <p className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-800 dark:text-rose-200">
                       {initError}
                     </p>
                   )}
@@ -463,7 +463,7 @@ export default function CreateVaultPage() {
               )}
             </div>
           ) : (
-            <p className="mt-4 text-sm text-amber-200/70">
+            <p className="mt-4 text-sm text-amber-700/70 dark:text-amber-200/70">
               {connected
                 ? "Contact the deployer of this VaultCircle instance to complete setup before creating vaults."
                 : "Connect your deployer wallet to initialize VaultCircle, or contact the deployer."}
@@ -476,7 +476,7 @@ export default function CreateVaultPage() {
         {/* ── Form ── */}
         <form
           onSubmit={handleSubmit}
-          className="divide-y divide-white/[0.08] overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.045] shadow-[0_24px_70px_rgba(2,6,23,0.28)] backdrop-blur-sm"
+          className="divide-y divide-overlay/[0.08] overflow-hidden rounded-[28px] border border-overlay/10 bg-overlay/[0.045] shadow-[0_24px_70px_rgba(2,6,23,0.28)] backdrop-blur-sm"
         >
           {/* 1 · Vault name */}
           <section className="p-6 md:p-8">
@@ -497,15 +497,15 @@ export default function CreateVaultPage() {
             <SectionHeader n={2} title="Initial members" />
 
             {/* Creator chip */}
-            <div className="mt-5 flex items-center gap-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3">
-              <span className="glow-dot shrink-0 bg-cyan-400" />
+            <div className="mt-5 flex items-center gap-3 rounded-2xl border border-orange-400/20 bg-orange-400/[0.06] px-4 py-3">
+              <span className="glow-dot shrink-0 bg-orange-400" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-cyan-200">Your wallet &middot; creator and member&nbsp;1</p>
+                <p className="text-sm font-semibold text-orange-800 dark:text-orange-200">Your wallet &middot; creator and member&nbsp;1</p>
                 {address && (
-                  <p className="mt-0.5 truncate font-mono text-xs text-slate-400">{address}</p>
+                  <p className="mt-0.5 truncate font-mono text-xs text-ink-400">{address}</p>
                 )}
               </div>
-              <span className="shrink-0 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-xs font-semibold text-cyan-300">
+              <span className="shrink-0 rounded-full border border-orange-400/20 bg-orange-400/10 px-2.5 py-1 text-xs font-semibold text-orange-700 dark:text-orange-300">
                 Auto-added
               </span>
             </div>
@@ -527,7 +527,7 @@ export default function CreateVaultPage() {
                     <button
                       type="button"
                       onClick={() => removeMember(index)}
-                      className="btn-secondary shrink-0 px-4 text-rose-300 hover:border-rose-400/30 hover:text-rose-200"
+                      className="btn-secondary shrink-0 px-4 text-rose-700 dark:text-rose-300 hover:border-rose-400/30 hover:text-rose-800 dark:hover:text-rose-200"
                     >
                       Remove
                     </button>
@@ -538,7 +538,7 @@ export default function CreateVaultPage() {
 
             {members.length < MAX_ADDITIONAL_MEMBERS && (
               <button type="button" onClick={addMemberField} className="btn-secondary mt-4">
-                <span className="mr-1.5 text-cyan-400">+</span>Add another member
+                <span className="mr-1.5 text-orange-400">+</span>Add another member
               </button>
             )}
           </section>
@@ -547,11 +547,11 @@ export default function CreateVaultPage() {
           <section className="p-6 md:p-8">
             <SectionHeader n={3} title="Approval threshold" />
 
-            <div className="mt-5 rounded-[20px] border border-white/[0.08] bg-slate-950/60 px-6 py-8 text-center">
-              <p className="text-6xl font-bold tracking-tight text-white">{threshold}%</p>
-              <p className="mt-2 text-sm text-slate-400">of members must approve each treasury action</p>
-              <div className="mt-4 inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-1.5">
-                <span className="text-sm font-semibold text-cyan-100">
+            <div className="mt-5 rounded-[20px] border border-overlay/[0.08] bg-ink-950/60 px-6 py-8 text-center">
+              <p className="text-6xl font-bold tracking-tight text-ink-50 tabular-nums">{threshold}%</p>
+              <p className="mt-2 text-sm text-ink-400">of members must approve each treasury action</p>
+              <div className="mt-4 inline-flex items-center rounded-full border border-orange-400/20 bg-orange-400/10 px-4 py-1.5">
+                <span className="text-sm font-semibold text-orange-800 dark:text-orange-100">
                   {requiredApprovals} of {totalMembers} member{totalMembers !== 1 ? "s" : ""} must approve
                 </span>
               </div>
@@ -563,9 +563,9 @@ export default function CreateVaultPage() {
               max={PROTOCOL.maxThreshold}
               value={threshold}
               onChange={(e) => setThreshold(Number(e.target.value))}
-              className="mt-5 w-full accent-cyan-400"
+              className="mt-5 w-full accent-orange-400"
             />
-            <div className="mt-1.5 flex justify-between text-xs text-slate-500">
+            <div className="mt-1.5 flex justify-between text-xs text-ink-500">
               <span>Min {PROTOCOL.minThreshold}%</span>
               <span>Max {PROTOCOL.maxThreshold}%</span>
             </div>
@@ -575,19 +575,19 @@ export default function CreateVaultPage() {
           <section className="p-6 md:p-8">
             <SectionHeader n={4} title="Settings" />
 
-            <label className="mt-5 flex cursor-pointer items-start gap-4 rounded-[20px] border border-white/[0.08] bg-slate-950/50 p-5 transition duration-200 hover:border-white/[0.14]">
+            <label className="mt-5 flex cursor-pointer items-start gap-4 rounded-[20px] border border-overlay/[0.08] bg-ink-950/50 p-5 transition duration-200 hover:border-overlay/[0.14]">
               <input
                 type="checkbox"
                 checked={yieldEnabled}
                 onChange={(e) => setYield(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/10 bg-slate-950 accent-cyan-400"
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-overlay/10 bg-ink-950 accent-orange-400"
               />
               <div>
-                <p className="text-sm font-semibold text-white">
+                <p className="text-sm font-semibold text-ink-50">
                   Enable Zest yield path{" "}
-                  <span className="font-normal text-slate-500">(optional)</span>
+                  <span className="font-normal text-ink-500">(optional)</span>
                 </p>
-                <p className="mt-1.5 text-sm leading-6 text-slate-400">
+                <p className="mt-1.5 text-sm leading-6 text-ink-400">
                   Members can later vote to allocate part of the treasury into Zest. Yield accrues to the vault
                   balance &mdash; never split into private claim accounts.
                 </p>
@@ -597,7 +597,7 @@ export default function CreateVaultPage() {
             <div className="mt-5">
               <label className="label">
                 Beneficiary address{" "}
-                <span className="font-normal text-slate-500">(optional)</span>
+                <span className="font-normal text-ink-500">(optional)</span>
               </label>
               <input
                 className="input"
@@ -649,7 +649,7 @@ export default function CreateVaultPage() {
               {primaryButtonLabel}
             </button>
 
-            <p className="text-center text-sm text-slate-500">
+            <p className="text-center text-sm text-ink-500">
               {selectedWalletName ?? "Your wallet"} will prompt you to sign before anything is submitted on-chain.
             </p>
           </section>
@@ -661,41 +661,41 @@ export default function CreateVaultPage() {
           <div className="surface-card">
             <div className="flex items-center justify-between">
               <p className="eyebrow">Live Preview</p>
-              <span className="glow-dot bg-cyan-400" />
+              <span className="glow-dot bg-orange-400" />
             </div>
 
-            <div className="mt-5 divide-y divide-white/[0.07]">
+            <div className="mt-5 divide-y divide-overlay/[0.07]">
               <PreviewRow label="Name">
-                <span className={name ? "font-medium text-white" : "italic text-slate-600"}>
+                <span className={name ? "font-medium text-ink-50" : "italic text-ink-600"}>
                   {name || "Not set yet"}
                 </span>
               </PreviewRow>
               <PreviewRow label="Members at launch">
-                <span className="font-medium text-white">{totalMembers}</span>
+                <span className="font-medium text-ink-50">{totalMembers}</span>
               </PreviewRow>
               <PreviewRow label="Approvals required">
-                <span className="font-semibold text-cyan-300">
+                <span className="font-semibold text-orange-700 dark:text-orange-300">
                   {requiredApprovals} of {totalMembers}
                 </span>
               </PreviewRow>
               <PreviewRow label="Threshold">
-                <span className="font-medium text-white">{threshold}%</span>
+                <span className="font-medium text-ink-50">{threshold}%</span>
               </PreviewRow>
               <PreviewRow label="Zest yield">
-                <span className={yieldEnabled ? "font-medium text-emerald-300" : "text-slate-500"}>
+                <span className={yieldEnabled ? "font-medium text-emerald-700 dark:text-emerald-300" : "text-ink-500"}>
                   {yieldEnabled ? "Enabled" : "Disabled"}
                 </span>
               </PreviewRow>
               {beneficiary && (
                 <div className="py-3 text-sm">
-                  <p className="text-slate-400">Beneficiary</p>
-                  <p className="mt-1 break-all font-mono text-xs text-slate-300">{beneficiary}</p>
+                  <p className="text-ink-400">Beneficiary</p>
+                  <p className="mt-1 break-all font-mono text-xs text-ink-300">{beneficiary}</p>
                 </div>
               )}
             </div>
 
-            <div className="mt-5 border-t border-white/[0.08] pt-5">
-              <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+            <div className="mt-5 border-t border-overlay/[0.08] pt-5">
+              <div className="mb-2 flex items-center justify-between text-xs text-ink-400">
                 <span>Approval requirement</span>
                 <span>{requiredApprovals} / {totalMembers} members</span>
               </div>
@@ -731,10 +731,10 @@ export default function CreateVaultPage() {
 function SectionHeader({ n, title }: { n: number; title: string }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-cyan-400/30 bg-cyan-400/10 text-xs font-bold text-cyan-300">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-orange-400/30 bg-orange-400/10 text-xs font-bold text-orange-700 dark:text-orange-300">
         {n}
       </span>
-      <h2 className="text-base font-semibold text-white">{title}</h2>
+      <h2 className="text-base font-semibold text-ink-50">{title}</h2>
     </div>
   );
 }
@@ -742,7 +742,7 @@ function SectionHeader({ n, title }: { n: number; title: string }) {
 function PreviewRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between py-3 text-sm">
-      <span className="text-slate-400">{label}</span>
+      <span className="text-ink-400">{label}</span>
       {children}
     </div>
   );
