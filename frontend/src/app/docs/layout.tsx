@@ -33,12 +33,12 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="page-wrap">
-      <div className="grid gap-8 lg:grid-cols-[240px_1fr] lg:items-start">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[240px_1fr] lg:items-start">
         <nav
           aria-label="Documentation"
-          className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
+          className="min-w-0 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
         >
-          <div className="flex gap-2 overflow-x-auto pb-2 lg:hidden">
+          <div className="flex min-w-0 gap-2 overflow-x-auto pb-2 lg:hidden">
             {DOC_SECTIONS.flatMap((section) => section.links).map((link) => (
               <Link
                 key={link.href}
