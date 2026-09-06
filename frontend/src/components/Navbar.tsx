@@ -64,8 +64,8 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
-          <ThemeToggle className="hidden sm:inline-flex" />
-          <div className="hidden sm:block">
+          <ThemeToggle className="hidden md:inline-flex" />
+          <div className="hidden md:block">
             <WalletMenu />
           </div>
 
@@ -110,9 +110,9 @@ export default function Navbar() {
               ))}
             </div>
 
-            <div className="flex items-center gap-3">
-              <WalletMenu />
-              <ThemeToggle />
+            <div className="flex flex-col gap-3">
+              <WalletMenu variant="inline" />
+              <ThemeToggle className="self-start" />
             </div>
           </div>
         </div>

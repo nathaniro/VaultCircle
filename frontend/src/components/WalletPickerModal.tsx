@@ -8,12 +8,12 @@ export default function WalletPickerModal() {
   if (!walletPickerOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-4">
-      <div className="w-full max-w-2xl overflow-hidden rounded-[30px] border border-overlay/10 bg-ink-950 shadow-[0_30px_120px_rgba(2,6,23,0.65)]">
-        <div className="flex items-start justify-between border-b border-overlay/10 px-6 py-6 md:px-8">
-          <div>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-4 py-8">
+      <div className="max-h-full w-full max-w-2xl overflow-y-auto rounded-[30px] border border-overlay/10 bg-ink-950 shadow-[0_30px_120px_rgba(2,6,23,0.65)]">
+        <div className="flex items-start justify-between gap-4 border-b border-overlay/10 px-6 py-6 md:px-8">
+          <div className="min-w-0">
             <p className="eyebrow">Wallet Access</p>
-            <h2 className="mt-3 text-3xl font-semibold text-ink-50">Choose your Stacks Testnet signer</h2>
+            <h2 className="mt-3 text-2xl font-semibold text-ink-50 sm:text-3xl">Choose your Stacks Testnet signer</h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-ink-400">
               Pick the wallet that will create vaults, sign deposits, vote on proposals, and execute approved actions.
             </p>
@@ -21,7 +21,7 @@ export default function WalletPickerModal() {
           <button
             type="button"
             onClick={closeWalletPicker}
-            className="btn-secondary px-4 py-2"
+            className="btn-secondary shrink-0 px-4 py-2"
           >
             Close
           </button>
@@ -44,8 +44,8 @@ export default function WalletPickerModal() {
                 }`}
               >
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <div className="flex items-center gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-xl font-semibold text-ink-50">{wallet.name}</h3>
                       <span
                         className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
@@ -61,7 +61,7 @@ export default function WalletPickerModal() {
                   </div>
 
                   {wallet.installed ? (
-                    <button type="button" onClick={() => connect(wallet.id)} className="btn-primary min-w-40">
+                    <button type="button" onClick={() => connect(wallet.id)} className="btn-primary shrink-0 md:min-w-40">
                       {isSelected ? "Continue with wallet" : `Use ${wallet.name}`}
                     </button>
                   ) : (
@@ -69,7 +69,7 @@ export default function WalletPickerModal() {
                       href={wallet.installUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="btn-secondary min-w-40 text-center"
+                      className="btn-secondary shrink-0 text-center md:min-w-40"
                     >
                       Install {wallet.name}
                     </a>

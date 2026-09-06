@@ -20,15 +20,15 @@ export default function VaultCard({
       className="surface-card surface-card-interactive group block"
     >
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-500">Vault #{vault.vaultId}</p>
-          <h3 className="mt-3 text-2xl font-semibold text-ink-50 transition group-hover:text-orange-600 dark:group-hover:text-orange-100">{vault.name}</h3>
+          <h3 className="mt-3 break-words text-2xl font-semibold text-ink-50 transition group-hover:text-orange-600 dark:group-hover:text-orange-100">{vault.name}</h3>
           <p className="mt-2 text-sm leading-6 text-ink-400">
             Shared treasury with {vault.memberCount} member{vault.memberCount !== 1 ? "s" : ""} and a{" "}
             {vault.thresholdPercent}% approval threshold before assets move.
           </p>
         </div>
-        <div className="flex flex-col items-end gap-3">
+        <div className="flex shrink-0 flex-col items-end gap-3">
           {showMembershipBadge && <VaultMembershipBadge compact creator={creatorMember} />}
           <span className={vault.status === "ACTIVE" ? "badge-active" : "badge-executed"}>{vault.status}</span>
         </div>

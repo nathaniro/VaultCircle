@@ -139,7 +139,7 @@ export default function MembersPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="table-shell">
-          <div className="grid gap-3 px-6 py-5 text-sm text-ink-400 md:grid-cols-[2fr_1fr_1fr_0.8fr]">
+          <div className="hidden gap-3 px-6 py-5 text-sm text-ink-400 md:grid md:grid-cols-[2fr_1fr_1fr_0.8fr]">
             <span>Member</span>
             <span>Contribution</span>
             <span>Share</span>
@@ -159,10 +159,22 @@ export default function MembersPage() {
                   </div>
                   <p className="mt-2 text-xs text-ink-500">Joined at block {member.joinedAt}</p>
                 </div>
-                <p className="text-sm font-semibold text-ink-50">{satsTosBTC(member.contributed)} sBTC</p>
-                <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">{sharePercent}%</p>
-                <div>
-                  <span className={member.active ? "badge-active" : "badge-executed"}>{member.active ? "Active" : "Removed"}</span>
+
+                <div className="grid grid-cols-3 gap-3 md:contents">
+                  <div>
+                    <p className="stat-label md:hidden">Contribution</p>
+                    <p className="mt-1 text-sm font-semibold text-ink-50 md:mt-0">{satsTosBTC(member.contributed)} sBTC</p>
+                  </div>
+                  <div>
+                    <p className="stat-label md:hidden">Share</p>
+                    <p className="mt-1 text-sm font-semibold text-amber-700 dark:text-amber-300 md:mt-0">{sharePercent}%</p>
+                  </div>
+                  <div>
+                    <p className="stat-label md:hidden">Status</p>
+                    <div className="mt-1 md:mt-0">
+                      <span className={member.active ? "badge-active" : "badge-executed"}>{member.active ? "Active" : "Removed"}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
